@@ -237,8 +237,6 @@ class MusicParser:
         resultstr = regexstr
         if self._is_complex(resultstr):
             resultstr = self._replace_arguments(resultstr)
-        print(regexstr)
-        print(resultstr)
         return re.compile(resultstr)
 
     def _build_mutator(self, funcname, value):
