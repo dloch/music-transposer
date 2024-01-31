@@ -8,10 +8,7 @@ class MusicParser:
 
     basetypes = ["note", "snote", "gnote"]
     dyntypes = ["_"]
-    metatypes = ["_docstring"]
-
-    def generate(self, musicdef):
-        return ""
+    metatypes = ["_docstring", "_modifiers"]
 
     def get_tune(self, musicstr):
         tune = Tune()
@@ -119,6 +116,12 @@ class MusicParser:
             reresult = jinja2.Template(matcher_template).render(values)
             result[re.compile(reresult)] = k
         return result
+
+    def _gen_modified_matchers(self, matchers):
+        modifiers = self.defs["_modifiers"]
+        for modifier in modifiers:
+            
+        return
 
     def _reverse_defs(self, defs):
         result = {}

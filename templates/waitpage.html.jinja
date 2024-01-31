@@ -1,0 +1,11 @@
+{% extends 'base.html.jinja' %}
+
+{% block header %}
+  <script src="/waitpage.js"></script>
+{% endblock %}
+
+{% block content %} 
+<div class="container" id="resultContainer", target="{{ uuid }}">
+  <p>Result State: <mark class="text-warning" id="resultState">{{ result }}</mark></p>
+</div>
+{% endblock %}

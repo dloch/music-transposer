@@ -1,0 +1,24 @@
+{% extends 'base.html.jinja' %}
+
+
+{% block content %}
+  <div class ="container">
+    <form class="container" method="post" enctype="multipart/form-data">
+      <div class="mb-3 form-group">
+        <label for="fileField" class="form-label">File to convert (BWW format supported)</label>
+        <br/>
+        <input type="file" id="fileField" class="form-control" name="to_parse"></input>
+      </div>
+      <button type="submit" class="btn btn-primary">Submit</input>
+    </form>
+  </div>
+
+  <h1>Current conversions:</h1>
+  <ul>
+    {%- for (k, v) in results.items() %}
+      <li>
+        <a href="/parse/{{ k }}">{{ v }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

@@ -36,16 +36,16 @@ I!'' tg LA_8 'a ag B_16 cg B_8 'b dg C_16 eg C_8 'c fg D_16
 
 "     1/1 strikes  ",(F,R,0,0,Times New Roman,10,400,0,0,18,0,0,0)
 & sharplg sharpla sharpb sharpc sharpd sharpe sharpf sharphg sharpha 1_1 I!'' Er_4 strlg El_4
-! LAl_8 strlg LAl_8 Bl_8 strla Bl_8 Cl_8 strlb Cl_8 Dl_8 strlc Dl_8
+! LAl_8 strlg LAl_8 Bl_8 strla Bl_8 Cl_8 strb Cl_8 Dl_8 strc Dl_8
 ! El_8 strd El_8 Fl_8 stre Fl_8 HGl_8 strf HGl_8 HAl_8 strhg HAl_8
-! LAr_8 gstrlg LAr_8 Br_8 gstrla Br_8 Cr_8 gstrlb Cr_8 Dr_8 gstrlc Dr_8
+! LAr_8 gstrlg LAr_8 Br_8 gstrla Br_8 Cr_8 gstrb Cr_8 Dr_8 gstrc Dr_8
 ! Er_8 gstrd Er_8 Fr_8 gstre Fr_8 HGr_8 gstrf HGr_8 HAr_8 gstrhg HAr_8 't
 
 "     1/1 thumb and half strikes    ",(F,R,0,0,Times New Roman,10,400,0,0,18,0,0,0)
 & naturallg naturalla naturalb naturalc naturald naturale naturalf naturalhg naturalha 1_1 I!'' Er_4 strlg El_4
-! LAl_8 tstrlg LAl_8 Bl_8 tstrla Bl_8 Cl_8 tstrlb Cl_8 Dl_8 tstrlc Dl_8
+! LAl_8 tstrlg LAl_8 Bl_8 tstrla Bl_8 Cl_8 tstrb Cl_8 Dl_8 tstrc Dl_8
 ! El_8 tstrd El_8 Fl_8 tstre Fl_8 HGl_8 tstrf HGl_8 HAl_8 tstrhg HAl_8
-! LAl_8 hstrlg LAl_8 Bl_8 hstrla Bl_8 Cl_8 hstrlb Cl_8 Dl_8 hstrlc Dl_8
+! LAl_8 hstrlg LAl_8 Bl_8 hstrla Bl_8 Cl_8 hstrb Cl_8 Dl_8 hstrc Dl_8
 ! El_8 hstrd El_8 Fl_8 hstre Fl_8 HGl_8 hstrf HGl_8 HAl_8 hstrhg HAl_8 't
 
 "     2/4 grips and bgrips    ",(F,R,0,0,Times New Roman,10,400,0,0,18,0,0,0)

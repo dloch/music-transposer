@@ -33,7 +33,8 @@ class MusicGenerator:
                 "sharpf": "",
                 "repeatstart": '\\repeat volta 2 {',
                 "repeatend": '}\r',
-                "lineend": '\\bar "|"\r\\break'
+                "lineend": '\\bar "|"\r\\break',
+                "tie": "~"
             }
     func_translation = {
                 "partstart": "bar",
@@ -52,7 +53,6 @@ class MusicGenerator:
         nobreak = ["barstart", "barend"]
         result = barval % barvals[bartype]
         if self.offset:
-            print(self.offset)
             result = '%s \r%s' % (result, self.offset)
             self.offset = None
         elif bartype in nobreak:
@@ -74,6 +74,9 @@ class MusicGenerator:
             return "\grace { %s16 }" % self.notes[notes[0]]
         return "\grace { %s16 %s }" % (self.notes[notes[0]], ' '.join(map(lambda n : self.notes[n], notes[1:])))
 
+    def _ignore(self, *_args, **_kwargs):
+        return ''
+
     def _normalize(self, note):
         normal = { "G": "HG", "A": "LA" }
         if isinstance(note, str):
@@ -83,6 +86,9 @@ class MusicGenerator:
             if normal_note in self.notes:
                 return normal_note
         return note
+
+    def footer(self, note):
+        return 'a_"%s"' % note
 
     def note_above(self, note, starting = "D"):
         note_index = self.sorted_notes.index(note)
@@ -104,6 +110,10 @@ class MusicGenerator:
         if modifiers and "dot" in modifiers:
             for x in range(0, modifiers["dot"]):
                 result += '.'
+        if self.is_tying == 0:
+            self.is_tying = 1
+        elif self.is_tying:
+            result = "~ %s" % result
         return result
 
     def time_notation(self, upper, lower):
@@ -123,16 +133,47 @@ class MusicGenerator:
     def grace(self, value):
         return self.build_embellishment([value])
 
-    def double(self, note, modifier = None):
+    def double(self, note, modifier = {}):
         doubling = []
         if not modifier and note != "HA":
             doubling.append('HG')
+        elif "thumb" in modifier:
+            doubling.append('HA')
+        elif "half" in modifier:
+            pass
         if note in ["HA", "HG"]:
             return self.build_embellishment(doubling + [self.note_below(note)])
         return self.build_embellishment(doubling + [note, self.note_above(note)])
 
     def throw(self):
         return self.build_embellishment(["LG", "D", "C"])
+
+    def nlets(self, *args, **kwargs):
+        print(args)
+        return ''
+
+    def tie(self, modifiers={}):
+        if 'state' in modifiers:
+            if modifiers['state'] == 'start':
+                self.is_tying = 0
+            elif modifiers['state'] == 'end' and self.is_tying != None:
+                self.is_tying == None
+            else:
+                return '~'
+        else:
+            return '~'
+
+    def birl(self, modifiers={}):
+        result = []
+        if "half" in modifiers:
+            pass
+        elif "thumb" in modifiers:
+            result.append("HA")
+        elif "a" in modifiers:
+            result.append("LA")
+        elif "heavy" in modifiers:
+            result.append("HG")
+        return self.build_embellishment(result + ["LG", "LA", "LG"])
 
     def _grip_helper(self):
         mid_note = ["B"] if self.prev_note == "D" else ["D"]
@@ -188,7 +229,11 @@ class MusicGenerator:
             fname = self._normalize(note)
         else:
             fname = note[0]
-            fargs = [self._normalize(n) for n in note[1]]
+            fargs = note[1]
+            if isinstance(fargs, tuple):
+                fargs = [self._normalize(n) for n in fargs]
+        if not isinstance(fargs, list):
+            return getattr(self, fname)(fargs)
         return getattr(self, fname)(*fargs)
 
     def _find_offset(self, time, notes, note_offset=0):
@@ -228,15 +273,14 @@ class MusicGenerator:
 
     def _generate_music(self, tune):
         self.prev_note = ""
-        return " ".join([ self._decode(note) for note in tune.notes ])
+        return " ".join([ self._decode(note) for note in filter(lambda x : x, tune.notes) ])
 
     def from_tune(self, tune):
         header = self._generate_header(tune)
         self.offset = self._find_offset(tune.time, tune.notes)
         music = self._generate_music(tune)
         # TODO: Read ahead to get the correct start point
-        return ("""
-        \\version "2.20.0"
+        return ("""\\version "2.20.0"
 \score {
     \header {
         %s
@@ -256,4 +300,4 @@ class MusicGenerator:
     def __init__(self):
         self.prev_note = ""
         self.offset = ""
-        self.offset = ""
+        self.is_tying = None
