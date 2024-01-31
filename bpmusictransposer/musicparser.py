@@ -13,7 +13,7 @@ class FindReplace:
         self.key = key
         self.regex = regex
 
-class MusicParser2:
+class MusicParser:
     basetypes = ["note", "snote", "gnote"]
     dyntypes = ["_"]
     metatypes = ["_docstring", "_modifiers"]
