@@ -1,6 +1,6 @@
 import os
 from bpmusictransposer.musicgenerator import MusicGenerator
-from bpmusictransposer.musicparser2 import MusicParser2
+from bpmusictransposer.musicparser2 import MusicParser
 
 def cleanup(testdir, genfiletype):
     for file in filter(lambda x: x.endswith(genfiletype), os.listdir(testdir)):
@@ -29,7 +29,7 @@ def __main__():
     files = ['%s/%s' % (filedir, f) for f in filter(lambda x: x.endswith(filetype), os.listdir(filedir))]
     cleanup(filedir, 'ly')
 
-    mp = MusicParser2("parserdefs/BWW.v1.0.json")
+    mp = MusicParser("parserdefs/BWW.v1.0.json")
     mg = MusicGenerator()
     tunes = [[parse_tune(mp, f), "%s.ly" % f] for f in files]
     print([write_tune(mg, tune[0], tune[1]) for tune in tunes])
