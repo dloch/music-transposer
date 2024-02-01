@@ -32,7 +32,6 @@ class MusicGenerator:
     simple_translation = {
                 "sharpc": "",
                 "sharpf": "",
-                "tie": "~"
             }
     func_translation = {
                 "partstart": "bar",
@@ -53,6 +52,7 @@ class MusicGenerator:
         return '%s\\bar"|"%s\\break\n' % (self._get_indent(), self._get_indent())
 
     def repeatstart(self, *_args):
+        print("Open bracket")
         response = '%s\\repeat volta 2 {' % self._get_indent()
         self._indent_level += 1
         if self.offset:
@@ -62,7 +62,8 @@ class MusicGenerator:
 
     def repeatend(self, *_args):
         self._indent_level -= 1
-        response = "%s}%s\\break\n" % (self._get_indent(), self._get_indent())
+        print("Ending bracket")
+        return "%s}%s\\break\n" % (self._get_indent(), self._get_indent())
 
     def bar(self, bartype):
         barval = '%s\\bar "%s"' % (self._get_indent(), '%s')
@@ -135,10 +136,8 @@ class MusicGenerator:
         if modifiers and "dot" in modifiers:
             for x in range(0, modifiers["dot"]):
                 result += '.'
-        if self.is_tying == 0:
-            self.is_tying = 1
-        elif self.is_tying:
-            result = "~ %s" % result
+        if self.is_tying != None:
+            result = "%s%s" % (self.tie(modifiers={"state": "check"}), result)
         if self.prev_note:
             result = "%s%s" % (self._get_indent(), result)
         self.prev_note = value
@@ -194,10 +193,15 @@ class MusicGenerator:
         if 'state' in modifiers:
             if modifiers['state'] == 'start':
                 self.is_tying = 0
-            elif modifiers['state'] == 'end' and self.is_tying != None:
-                self.is_tying == None
-            else:
-                return '~'
+            elif modifiers['state'] == 'end':
+                if self.is_tying == None:
+                    return '~'
+                self.is_tying = None
+            elif modifiers['state'] == 'check':
+                if self.is_tying == 0:
+                    self.is_tying += 1
+                    return ""
+                return "~"
         else:
             return '~'
 
@@ -225,39 +229,6 @@ class MusicGenerator:
 
     def rodin(self):
         return self.build_embellishment(["LG", "B", "LG"])
-
-    def _embellishments(self):
-        return """
-        lgdouble = \grace {g''16 g' d'' }
-        adouble = \grace {g''16 a' d'' }
-        bdouble = \grace {g''16 b' d'' }
-        cdouble = \grace {g''16 c'' d'' }
-        ddouble = \grace {g''16 d'' e'' }
-        edouble = \grace {g''16 e'' f'' }
-        fdouble = \grace {g''16 f'' g'' }
-        gdouble = \grace {a''16 g'' f'' }
-        hadouble = \grace {a''16 g''}
-        lghalf = \grace { g'16 d'' }
-        ahalf = \grace { a'16 d'' }
-        bhalf = \grace { b'16 d'' }
-        chalf = \grace { c''16 d'' }
-        dhalf = \grace { d''16 e'' }
-        ehalf = \grace { e''16 f'' }
-        fhalf = \grace { f''16 g'' }
-        ghalf = \grace { g''16 f'' }
-        grip = \grace { g'16 d'' g' }
-        dgrip = \grace { g'16 b' g' }
-        throw = \grace { g'16 d'' c'' }
-        taorluath = \grace { g'16 d'' g' e'' }
-        dtaorluath = \grace { g'16 b' g' e'' }
-        birl = \grace { a'16 g' a' g' }
-        hbirl = \grace { a''16 a' g' a' g' }
-        abirl = \grace { g'16 a' g' }
-        hdstrike = \grace { g''16 d'' g' }
-        dhpshake = \grace { g''16 d'' e'' d'' c'' }
-        chpshake = \grace { g''16 c'' e'' c'' g' }
-        darado = \grace { g'16 e'' g' d'' g' }
-        """
 
     def _decode(self, note):
         'A note is either: "funcname" or ("funcname", [args])'
