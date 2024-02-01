@@ -1,5 +1,8 @@
 {% extends 'base.html.jinja' %}
 
+{% block header %}
+<script src="{{ page_js }}"></script>
+{% endblock %}
 
 {% block content %}
   <div class ="container">
@@ -14,10 +17,10 @@
   </div>
 
   <h1>Current conversions:</h1>
-  <ul>
-    {%- for (k, v) in results.items() %}
-      <li>
-        <a href="/parse/{{ k }}">{{ v }}</a>
+  <ul id="conversions">
+    {%- for result in results %}
+      <li status="{{ result['status'] }}">
+        <a status="{{ result['status'] }}" href="/parse/{{ result['uuid'] }}">{{ result['name'] }}</a>
       </li>
     {% endfor %}
   </ul>
