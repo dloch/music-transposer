@@ -1,5 +1,4 @@
-import re
-import json
+import re, json, os
 from bpmusictransposer.tune import Tune
 from itertools import takewhile, islice
 
@@ -14,6 +13,8 @@ class FindReplace:
         self.regex = regex
 
 class MusicParser:
+    parsers = {}
+
     basetypes = ["note", "snote", "gnote"]
     dyntypes = ["_"]
     metatypes = ["_docstring", "_modifiers"]
@@ -264,13 +265,14 @@ class MusicParser:
             return False
         return self.argument_re.search(definition) != None
 
-    def _load_parser(self, filedef):
-        with open(filedef, 'r') as file:
-            self.defs = json.loads(file.read())
+    def _load_parser(self, jsondef, register=False):
+        self.defs = jsondef
         self._build_header_definitions()
         self._build_read_definitions()
+        if register:
+            self.parsers[jsondef["_docstring"]["FormatName"]] = self
 
-    def __init__(self, filedef):
+    def __init__(self, jsondef, register=True):
         self.category_defs = []
         self.write_defs = {}
         self.pretokenize_defs = {}
@@ -279,4 +281,19 @@ class MusicParser:
         self.parser_name = ""
         self.parser_extensions = []
 
-        self._load_parser(filedef)
+        self._load_parser(jsondef, register)
+
+def load_parsers():
+    if not MusicParser.parsers:
+        parserdir = "transposer-data/parserdefs"
+        for parserfile in os.listdir(parserdir):
+            if parserfile.endswith('.json'):
+                try:
+                    with open(os.path.join(parserdir, parserfile), 'r') as file:
+                        parserjson = json.loads(file.read())
+                    MusicParser(parserjson, register=True)
+                except Exception as e:
+                    print("Could not load parser definition: %s" % parserfile)
+                    print(e)
+
+load_parsers()

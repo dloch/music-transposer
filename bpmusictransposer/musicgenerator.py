@@ -1,4 +1,6 @@
 from functools import reduce
+from itertools import islice
+from jinja2 import Template, Environment, FileSystemLoader
 
 class MusicGenerator:
     notes = {
@@ -28,23 +30,42 @@ class MusicGenerator:
             }
 
     simple_translation = {
-                "clefc": "\clef treble",
                 "sharpc": "",
                 "sharpf": "",
-                "repeatstart": '\\repeat volta 2 {',
-                "repeatend": '}\r',
-                "lineend": '\\bar "|"\r\\break',
                 "tie": "~"
             }
     func_translation = {
                 "partstart": "bar",
                 "partend": "bar",
                 "barstart": "bar",
-                "barend": "bar"
+                "barend": "bar",
+                "repeatstart": "repeatstart",
+                "repeatend": "repeatend"
             }
 
+    def _get_indent(self):
+        return '\n' + ' ' * self._indent_level * self._indent_spaces
+
+    def clefc(self, *_args):
+        return '%s\\clef treble' % self._get_indent()
+
+    def lineend(self, *_args):
+        return '%s\\bar"|"%s\\break\n' % (self._get_indent(), self._get_indent())
+
+    def repeatstart(self, *_args):
+        response = '%s\\repeat volta 2 {' % self._get_indent()
+        if self.offset:
+            response = '%s \n%s' % (response, self.offset)
+            self.offset = None
+        self._indent_level += 1
+        return response
+
+    def repeatend(self, *_args):
+        self._indent_level -= 1
+        response = "}%s\\break\n" % self._get_indent()
+
     def bar(self, bartype):
-        barval = '\\bar "%s"'
+        barval = '%s\\bar "%s"' % (self._get_indent(), '%s')
         barvals = { "partstart": "|.",
                     "partend": ".|",
                     "barstart": "|",
@@ -53,26 +74,29 @@ class MusicGenerator:
         nobreak = ["barstart", "barend"]
         result = barval % barvals[bartype]
         if self.offset:
-            result = '%s \r%s' % (result, self.offset)
+            result = '%s\n%s' % (result, self.offset)
             self.offset = None
         elif bartype in nobreak:
-            result = "%s\r        \\noBreak" % result
+            result = "%s \\noBreak" % result
 
-        return '%s\r        ' % result
+        return '%s\n' % result
 
     def __getattr__(self, name):
-        def method(*args):
+        def method(*args, modifiers={}):
             if name in self.simple_translation:
                 return self.simple_translation[name]
             elif name in self.func_translation:
-                return getattr(self, self.func_translation[name])(name)
+                if modifiers:
+                    return getattr(self, self.func_translation[name])(name, *args, modifiers=modifiers)
+                return getattr(self, self.func_translation[name])(name, *args)
             raise AttributeError("'%s' has no attribute '%s'" % (self.__class__.__name__, name))
         return method
 
     def build_embellishment(self, notes):
+        self.prev_note = ""
         if len(notes) == 1:
-            return "\grace { %s16 }" % self.notes[notes[0]]
-        return "\grace { %s16 %s }" % (self.notes[notes[0]], ' '.join(map(lambda n : self.notes[n], notes[1:])))
+            return "%s\grace { %s16 } " % (self._get_indent(), self.notes[notes[0]])
+        return "%s\grace { %s16 %s } " % (self._get_indent(), self.notes[notes[0]], ' '.join(map(lambda n : self.notes[n], notes[1:])))
 
     def _ignore(self, *_args, **_kwargs):
         return ''
@@ -88,7 +112,9 @@ class MusicGenerator:
         return note
 
     def footer(self, note):
-        return 'a_"%s"' % note
+        if not self.prev_note:
+            return '^"%s"' % note
+        return '_"%s"' % note
 
     def note_above(self, note, starting = "D"):
         note_index = self.sorted_notes.index(note)
@@ -104,8 +130,7 @@ class MusicGenerator:
             return "LG"
         return self.sorted_notes[note_index - 1 if note_index <= starting_index else starting_index]
 
-    def note(self, value, length, modifiers=None):
-        self.prev_note = value
+    def note(self, value, length, modifiers={}):
         result = "%s%d" % (self.notes[value], int(length))
         if modifiers and "dot" in modifiers:
             for x in range(0, modifiers["dot"]):
@@ -114,12 +139,26 @@ class MusicGenerator:
             self.is_tying = 1
         elif self.is_tying:
             result = "~ %s" % result
-        return result
+        if self.prev_note:
+            result = "%s%s" % (self._get_indent(), result)
+        self.prev_note = value
+        return result 
 
     def time_notation(self, upper, lower):
-        return '\\time %s/%s' % (upper, lower)
+        return '%s\\time %s/%s' % (self._get_indent(), upper, lower)
 
-    def strike(self, value, modifier={}):
+    def endingstart(self, num):
+        result = []
+        self._in_endings = True
+        self._indent_level += 1
+        return "\set Score.repeatCommands = #'((volta \"%s\"))" % num
+
+    def endingend(self):
+        self._in_endings = False
+        self._indent_level -= 1
+        return "\n\\set Score.repeatCommands = #'((volta #f))"
+
+    def strike(self, value, modifiers={}):
         return self.grace(value)
 
     def gracestrike(self, gracenote, from_note):
@@ -133,13 +172,13 @@ class MusicGenerator:
     def grace(self, value):
         return self.build_embellishment([value])
 
-    def double(self, note, modifier = {}):
+    def double(self, note, modifiers = {}):
         doubling = []
-        if not modifier and note != "HA":
+        if not modifiers and note != "HA":
             doubling.append('HG')
-        elif "thumb" in modifier:
+        elif "thumb" in modifiers:
             doubling.append('HA')
-        elif "half" in modifier:
+        elif "half" in modifiers:
             pass
         if note in ["HA", "HG"]:
             return self.build_embellishment(doubling + [self.note_below(note)])
@@ -149,7 +188,6 @@ class MusicGenerator:
         return self.build_embellishment(["LG", "D", "C"])
 
     def nlets(self, *args, **kwargs):
-        print(args)
         return ''
 
     def tie(self, modifiers={}):
@@ -225,16 +263,22 @@ class MusicGenerator:
         'A note is either: "funcname" or ("funcname", [args])'
         fname = ""
         fargs = []
+        fkwargs = {}
         if isinstance(note, str):
             fname = self._normalize(note)
         else:
             fname = note[0]
             fargs = note[1]
+            if len(note) >= 3:
+                fkwargs = note[2]
             if isinstance(fargs, tuple):
                 fargs = [self._normalize(n) for n in fargs]
         if not isinstance(fargs, list):
             return getattr(self, fname)(fargs)
+        if fkwargs:
+            return getattr(self, fname)(*fargs, modifiers=fkwargs)
         return getattr(self, fname)(*fargs)
+
 
     def _find_offset(self, time, notes, note_offset=0):
         time_count = time[0]
@@ -273,31 +317,36 @@ class MusicGenerator:
 
     def _generate_music(self, tune):
         self.prev_note = ""
-        return " ".join([ self._decode(note) for note in filter(lambda x : x, tune.notes) ])
+        result = []
+        for i in range(0, len(tune.notes)):
+            note = tune.notes[i]
+            if not note or note == "_ignore":
+                continue
+            if isinstance(note, list) and note[0] in ["partend", "barend", "repeatend", "lineend"]:
+                self._find_offset(tune.time, islice(tune.notes, i, None))
+            if self._in_endings != None and not self._in_endings and note[0] != 'endingstart':
+                self._in_endings = None
+                result.append("\n}")
+            if response := self._decode(note):
+                result.append(response)
+        return "".join(result)
 
     def from_tune(self, tune):
+        self.__reset__()
         header = self._generate_header(tune)
         self.offset = self._find_offset(tune.time, tune.notes)
         music = self._generate_music(tune)
-        # TODO: Read ahead to get the correct start point
-        return ("""\\version "2.20.0"
-\score {
-    \header {
-        %s
-    }
-    
-    \layout {
-        indent = 0\cm
-    }
-    \\absolute {
-        \override Stem.neutral-direction = -1
-        \override Stem.direction = -1
-        %s
-    }
-}
-        """ % (header, music)).strip()
+        return self.template.render({"header": header, "music": music})
 
-    def __init__(self):
+    def __reset__(self):
         self.prev_note = ""
         self.offset = ""
         self.is_tying = None
+        self._in_endings = None
+        self._indent_level = 2
+
+    def __init__(self):
+        self.__reset__()
+        self._indent_spaces = 4
+        jinja_env = Environment(loader = FileSystemLoader('transposer-data/templates'))
+        self.template = jinja_env.get_template("base.ly.jinja")

@@ -1,0 +1,18 @@
+\score {
+    \header {
+        {{ header }}
+    }
+
+    \layout {
+        indent = 0\cm
+        \context {
+            \Score
+            \autoBreaksOff
+        }
+    }
+    \absolute {
+        \override Stem.neutral-direction = -1
+        \override Stem.direction = -1
+        {{ music }}
+    }
+}

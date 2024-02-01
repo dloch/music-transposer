@@ -85,7 +85,7 @@
   "gracestrike": "{{gnote}}st{{snote}}",
   "doublegrace": "{{gnote}}{{snote}}",
   "time_notation": "{{time:0}}_{{time:1}}",
-	"dot": ["'{{snote}}", "_'"],
+	"dot": "'{{snote}}",
 	"clefc": "&",
 	"grace": "{{gnote}}g",
 	"double": "db{{snote}}",
@@ -110,5 +110,7 @@
 	"lineend": "!t",
 	"partstart": "I!",
 	"partend": "!I",
-  "_ignore": ["space", "'{{time}}"]
+  "endingstart": "'{{time}}",
+  "endingend": "_'",
+  "_ignore": "space"
 }
