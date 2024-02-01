@@ -7,11 +7,14 @@ from bpmusictransposer.musicgenerator import MusicGenerator
 from threading import Thread
 import sys, os, atexit, time, subprocess
 
+
+# TODO: I should be my own file
 def doWork():
     """Continuously take tasks off the queue, convert them to .ly format, generate the pdf, then make them available"""
     # TODO: Worker queue to clean them up afterwards
-    mp = MusicParser("./parserdefs/BWW.v1.0.json")
+    mp = MusicParser.parsers["BagpipeMusicWriter"]
     mg = MusicGenerator()
+    # TODO: Clean up how this file works
     db_file = os.path.join(app.config['UPLOAD_FOLDER'], app.config['JOB_LIST'])
     while app.is_running:
         try:
@@ -44,6 +47,7 @@ def doWork():
             except Exception as e:
                 print("Worker Exception")
                 print(e, file=sys.stderr)
+                app.parse_requests[jobid] = {"status": "Failed", "name": original_name}
                 if os.path.isfile(filename):
                     os.unlink(filename)
         except Exception as e:

@@ -29,8 +29,14 @@ $(document).ready(function(){
           state = JSON.parse(response.responseText)['status']
           responseClasses = {};
           set_state(state)
-          if(state != 'Complete'){
-            setTimeout(checkSuccess, 5000)
+          var waittime = {
+            'Complete': Number.MAX_VALUE,
+            'Failed': Number.MAX_VALUE,
+            'Queued': 500,
+            'Processing': 2500
+          }[state]
+          if(!['Complete', 'Failed'].includes(state)){
+            setTimeout(checkSuccess, waittime)
           } else {
             displayResults()
           }
