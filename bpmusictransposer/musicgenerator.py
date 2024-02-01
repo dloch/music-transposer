@@ -54,15 +54,15 @@ class MusicGenerator:
 
     def repeatstart(self, *_args):
         response = '%s\\repeat volta 2 {' % self._get_indent()
-        if self.offset:
-            response = '%s \n%s' % (response, self.offset)
-            self.offset = None
         self._indent_level += 1
+        if self.offset:
+            response = '%s%s%s\n%s' % (response, self._get_indent(), self.offset, self._get_indent())
+            self.offset = None
         return response
 
     def repeatend(self, *_args):
         self._indent_level -= 1
-        response = "}%s\\break\n" % self._get_indent()
+        response = "%s}%s\\break\n" % (self._get_indent(), self._get_indent())
 
     def bar(self, bartype):
         barval = '%s\\bar "%s"' % (self._get_indent(), '%s')
@@ -151,12 +151,12 @@ class MusicGenerator:
         result = []
         self._in_endings = True
         self._indent_level += 1
-        return "\set Score.repeatCommands = #'((volta \"%s\"))" % num
+        return "%s\set Score.repeatCommands = #'((volta \"%s\"))%s" % (self._get_indent(), num, self._get_indent())
 
     def endingend(self):
         self._in_endings = False
         self._indent_level -= 1
-        return "\n\\set Score.repeatCommands = #'((volta #f))"
+        return "%s\\set Score.repeatCommands = #'((volta #f))%s" % (self._get_indent(), self._get_indent())
 
     def strike(self, value, modifiers={}):
         return self.grace(value)
@@ -284,25 +284,29 @@ class MusicGenerator:
         time_count = time[0]
         time_denom = time[1]
         
-        for i in range(0, len(notes)):
-            if isinstance(notes[i], str) and notes[i].endswith('end'):
+        first_bar_index = 0
+        prebar_notes = []
+        for i, note in enumerate(notes):
+            if isinstance(note, list) and note[0] == 'note':
+                prebar_notes.append(note)
+            elif isinstance(note, str) and note.endswith('end'):
                 first_bar_index = i
                 break
 
-        prebar_notes = filter(lambda x : x[0] == 'note', notes[0:first_bar_index])
-        
         def set_weight(note):
-            note_denom = int(note[1])
+            note_denom = int(note[1][1])
             base_value = time_denom / note_denom
             addl_value = 0
-            if len(note) == 3:
+            if "dot" in note[2]:
                 temp_val = base_value
                 for x in range(note[2]["dot"]):
                     addl_value += 0.5 * temp_val
                     temp_val = temp_val / 2
             return base_value + addl_value
 
-        offset = time_count - reduce(lambda acc, x: acc + set_weight(x[1]), prebar_notes, 0)
+        prebar_count = reduce(lambda acc, x: acc + set_weight(x), prebar_notes, 0)
+
+        offset = time_count - prebar_count
 
         if not offset:
             return ""
@@ -322,18 +326,23 @@ class MusicGenerator:
             note = tune.notes[i]
             if not note or note == "_ignore":
                 continue
-            if isinstance(note, list) and note[0] in ["partend", "barend", "repeatend", "lineend"]:
-                self._find_offset(tune.time, islice(tune.notes, i, None))
             if self._in_endings != None and not self._in_endings and note[0] != 'endingstart':
                 self._in_endings = None
                 result.append("\n}")
             if response := self._decode(note):
                 result.append(response)
+                if note in ["repeatstart", "partstart"] or isinstance(note, list) and note[0] == "time_notation":
+                    time = self._curr_time
+                    if note[0] == "time_notation":
+                        self._curr_time = tuple([int(t) for t in note[1]])
+                    if new_offset := self._find_offset(time, islice(tune.notes, i + 1, None)):
+                        self.offset = new_offset
         return "".join(result)
 
     def from_tune(self, tune):
         self.__reset__()
         header = self._generate_header(tune)
+        self._curr_time = tune.time
         self.offset = self._find_offset(tune.time, tune.notes)
         music = self._generate_music(tune)
         return self.template.render({"header": header, "music": music})
@@ -344,6 +353,7 @@ class MusicGenerator:
         self.is_tying = None
         self._in_endings = None
         self._indent_level = 2
+        self._curr_time = (0,0)
 
     def __init__(self):
         self.__reset__()

@@ -43,6 +43,8 @@ class MusicParser:
                     tune.notes[-1][2]['dot'] = 1
             else:
                 tune.notes.append(note)
+        if time := next(x for x in tune.notes if isinstance(x, list) and x[0] == "time_notation"):
+            tune.time = tuple([int(t) for t in time[1]])
         return tune
 
     def tokenize(self, musicstr):

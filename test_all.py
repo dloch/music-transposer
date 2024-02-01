@@ -32,7 +32,7 @@ def __main__():
     mp = MusicParser.parsers["BagpipeMusicWriter"]
     mg = MusicGenerator()
     tunes = [[parse_tune(mp, f), "%s.ly" % f] for f in files]
-    print([write_tune(mg, tune[0], tune[1]) for tune in tunes])
+    [write_tune(mg, tune[0], tune[1]) for tune in tunes]
 
 if __name__ == '__main__':
     __main__()
