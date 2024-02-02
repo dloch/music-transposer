@@ -1,6 +1,9 @@
 import re, json, os
+import sys
 from bpmusictransposer.tune import Tune
 from itertools import takewhile, islice
+from importlib import resources as impresources
+from . import parserdefs
 
 class FindReplace:
     def run(self, input):
@@ -24,6 +27,11 @@ class MusicParser:
     def get_tune(self, musicstr):
         return self.parse(Tune(), musicstr)
 
+    def _get_note_type(self, notedef):
+        if isinstance(notedef, str):
+            return notedef
+        return notedef[0]
+
     def parse(self, tune, musicstr):
         preprocessed_parts = self._pretokenize_parse(tune, musicstr)
         header = {x[0]: x[1] for x in takewhile(lambda x : isinstance(x, tuple), preprocessed_parts)}
@@ -36,15 +44,25 @@ class MusicParser:
             else:
                 note_result.append(note_section)
         for note in filter(lambda x : x != None, note_result):
-            if note == "dot" or isinstance(note, list) and note[0] == "dot":
-                if 'dot' in tune.notes[-1][2]:
-                    tune.notes[-1][2]['dot'] += 1
-                else:
-                    tune.notes[-1][2]['dot'] = 1
+            if self._get_note_type(note) == "dot":
+                for i in range(-1, -len(tune.notes), -1):
+                    next_note = tune.notes[i]
+                    if isinstance(next_note, list) and next_note[0] == "note":
+                        if 'dot' in next_note[2]:
+                            next_note[2]['dot'] += 1
+                        else:
+                            next_note[2]['dot'] = 1
+            elif self._get_note_type(note) == "common_time":
+                tune.notes.append(["time_notation", (4, 4), {}])
+            elif self._get_note_type(note) == "cut_common_time":
+                tune.notes.append(["time_notation", (2, 2), {}])
             else:
                 tune.notes.append(note)
-        if time := next(x for x in tune.notes if isinstance(x, list) and x[0] == "time_notation"):
-            tune.time = tuple([int(t) for t in time[1]])
+        times = [x for x in tune.notes if isinstance(x, list) and x[0] == "time_notation"]
+        if len(times) == 0:
+            tune.time = (4,4)
+        else:
+            tune.time = tuple(map(int, times[0][1]))
         return tune
 
     def tokenize(self, musicstr):
@@ -54,16 +72,19 @@ class MusicParser:
     def _parse_token(self, token):
         for c in self.category_defs:
             if args := c['filter'](token):
-                if c['target'] is None:
+                target = c['target']
+                if target is None:
                     return self.read_defs[token]
                 defargs = self._resolve_args(args)
                 modf = lambda a, x : x
                 if 'modifier' in c:
                     modf = c['modifier']
                     # Special case for simple targets:
-                    if c['target'] not in self.read_defs:
-                        return modf(args, [c['target'], (), {}])
-                return modf(args, self.read_defs[c['target']](defargs))
+                    if target not in self.read_defs:
+                        return modf(args, [target, (), {}])
+                if callable(self.read_defs[target]):
+                    return modf(args, self.read_defs[c['target']](defargs))
+                return modf(args, [target, (), {}])
         return token
 
     def _resolve_args(self, args):
@@ -183,7 +204,7 @@ class MusicParser:
             toadd = {}
             result_dict = match.groupdict()
             for (k, v) in result_dict.items():
-                if k in modifier:
+                if k in modifier and v != None:
                     toadd[k] = modifier[k][v] if isinstance(modifier[k], dict) else modifier[k]
             notedef[2].update(toadd)
             return notedef
@@ -284,18 +305,19 @@ class MusicParser:
         self.parser_extensions = []
 
         self._load_parser(jsondef, register)
+    def parserdefs():
+        return parserdefs
 
 def load_parsers():
     if not MusicParser.parsers:
-        parserdir = "transposer-data/parserdefs"
-        for parserfile in os.listdir(parserdir):
-            if parserfile.endswith('.json'):
+        parsers = impresources.files(parserdefs)
+        for parserfile in parsers.iterdir():
+            if parserfile.suffix == '.json':
                 try:
-                    with open(os.path.join(parserdir, parserfile), 'r') as file:
-                        parserjson = json.loads(file.read())
+                    parserjson = json.loads(parserfile.read_text())
                     MusicParser(parserjson, register=True)
                 except Exception as e:
-                    print("Could not load parser definition: %s" % parserfile)
+                    print("Could not load parser definition: %s" % parserfile.name)
                     print(e)
 
 load_parsers()

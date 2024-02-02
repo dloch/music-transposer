@@ -1,6 +1,6 @@
 from functools import reduce
 from itertools import islice
-from jinja2 import Template, Environment, FileSystemLoader
+from jinja2 import Template, Environment, PackageLoader
 
 class MusicGenerator:
     notes = {
@@ -52,7 +52,6 @@ class MusicGenerator:
         return '%s\\bar"|"%s\\break\n' % (self._get_indent(), self._get_indent())
 
     def repeatstart(self, *_args):
-        print("Open bracket")
         response = '%s\\repeat volta 2 {' % self._get_indent()
         self._indent_level += 1
         if self.offset:
@@ -62,7 +61,6 @@ class MusicGenerator:
 
     def repeatend(self, *_args):
         self._indent_level -= 1
-        print("Ending bracket")
         return "%s}%s\\break\n" % (self._get_indent(), self._get_indent())
 
     def bar(self, bartype):
@@ -189,7 +187,8 @@ class MusicGenerator:
     def nlets(self, *args, **kwargs):
         return ''
 
-    def tie(self, modifiers={}):
+    def tie(self, *_args, modifiers={}):
+        # Drop args, in case the tie specifies a note
         if 'state' in modifiers:
             if modifiers['state'] == 'start':
                 self.is_tying = 0
@@ -299,7 +298,6 @@ class MusicGenerator:
                 continue
             if self._in_endings != None and not self._in_endings and note[0] != 'endingstart':
                 self._in_endings = None
-                result.append("\n}")
             if response := self._decode(note):
                 result.append(response)
                 if note in ["repeatstart", "partstart"] or isinstance(note, list) and note[0] == "time_notation":
@@ -314,7 +312,9 @@ class MusicGenerator:
         self.__reset__()
         header = self._generate_header(tune)
         self._curr_time = tune.time
-        self.offset = self._find_offset(tune.time, tune.notes)
+        if self._curr_time == (0,0):
+            self._curr_time = (4,4)
+        self.offset = self._find_offset(self._curr_time, tune.notes)
         music = self._generate_music(tune)
         return self.template.render({"header": header, "music": music})
 
@@ -329,5 +329,5 @@ class MusicGenerator:
     def __init__(self):
         self.__reset__()
         self._indent_spaces = 4
-        jinja_env = Environment(loader = FileSystemLoader('transposer-data/templates'))
+        jinja_env = Environment(loader = PackageLoader('bpmusictransposer', 'templates'))
         self.template = jinja_env.get_template("base.ly.jinja")
