@@ -6,6 +6,8 @@ from uuid import uuid4
 import os, json, time, sys, subprocess
 
 class ThreadedWorker(Thread):
+    # TODO: Add reprocessing of failed job option
+    # TODO: Allow combining matching source files (And results) when they happen
     work_queue = SimpleQueue()
     is_running = True
     parse_status = {}
