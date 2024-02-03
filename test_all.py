@@ -1,27 +1,28 @@
-import os
+import os, sys
 from bpmusictransposer.musicgenerator import MusicGenerator
 from bpmusictransposer.musicparser import MusicParser
 
 def cleanup(testdir, genfiletype):
     for file in filter(lambda x: x.endswith(genfiletype), os.listdir(testdir)):
-        print("rm %s" % (file))
         os.remove("%s/%s" % (testdir, file))
 
 def write_tune(generator, tune, filename):
-    print(filename)
     try:
         tunestring = generator.from_tune(tune)
         with open(filename, 'x') as file:
             file.write(tunestring)
     except Exception as e:
-        raise e
-        return (tune.title(), e)
+        print("%s Failed: %s" % (filename, e), file=sys.stderr)
 
 def parse_tune(parser, filename):
-    print("Parse %s" % filename)
-    with open(filename) as file:
-        tune = parser.get_tune(file.read())
-    return tune
+    try:
+        tunestr = ""
+        with open(filename, 'r', encoding="cp1252") as file:
+            tunestr = file.read()
+        return parser.get_tune(tunestr)
+    except:
+        print("Parse %s failed" % filename)
+        return None
 
 def __main__():
     filetype = "bww"

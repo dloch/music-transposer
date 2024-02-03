@@ -6,10 +6,10 @@ from importlib import resources as impresources
 from . import parserdefs
 
 class FindReplace:
-    def run(self, input):
+    def run(self, match):
         if self.key == None:
             return self.key
-        return (self.key, self.regex.fullmatch(input).group(self.key))
+        return (self.key, match.group(self.key))
 
     def __init__(self, key, regex):
         self.key = key
@@ -20,7 +20,7 @@ class MusicParser:
 
     basetypes = ["note", "snote", "gnote"]
     dyntypes = ["_"]
-    metatypes = ["_docstring", "_modifiers"]
+    metatypes = ["_docstring", "_modifiers", "_postprocess"]
 
     argument_re = re.compile('{{([^}]*)}}')
 
@@ -33,7 +33,18 @@ class MusicParser:
         return notedef[0]
 
     def parse(self, tune, musicstr):
-        preprocessed_parts = self._pretokenize_parse(tune, musicstr)
+        preprocessed_parts = self._pretokenize_parse(musicstr)
+        header = {}
+        remove = []
+        for i, note in enumerate(preprocessed_parts):
+            if isinstance(note, tuple):
+                if tuple[1] == '':
+                    remove.insert(0, i)
+                elif not note[0] in header or not header[note[0]]:
+                    header[note[0]] = note[1]
+                    remove.insert(0, i)
+        for i in remove:
+            preprocessed_parts.pop(i)[0]
         header = {x[0]: x[1] for x in takewhile(lambda x : isinstance(x, tuple), preprocessed_parts)}
         tune.set_values(header)
         note_result = []
@@ -49,9 +60,11 @@ class MusicParser:
                     next_note = tune.notes[i]
                     if isinstance(next_note, list) and next_note[0] == "note":
                         if 'dot' in next_note[2]:
-                            next_note[2]['dot'] += 1
+                            next_note[2]['dot'] += len(note[1][0])
+                            break
                         else:
-                            next_note[2]['dot'] = 1
+                            next_note[2]['dot'] = len(note[1][0])
+                            break
             elif self._get_note_type(note) == "common_time":
                 tune.notes.append(["time_notation", (4, 4), {}])
             elif self._get_note_type(note) == "cut_common_time":
@@ -85,6 +98,8 @@ class MusicParser:
                 if callable(self.read_defs[target]):
                     return modf(args, self.read_defs[c['target']](defargs))
                 return modf(args, [target, (), {}])
+        if token in self.defs['_postprocess']:
+            return self.defs['_postprocess'][token]
         return token
 
     def _resolve_args(self, args):
@@ -96,32 +111,31 @@ class MusicParser:
                 result.append(arg)
         return tuple(result)
 
-    def _pretokenize_parse(self, tune, musicstr):
-        musicparts = musicstr.split('\n')
+    def _pretokenize_parse(self, musicstr):
+        musicparts = re.split('\n{2,}', musicstr)
         replacements = []
-        for (finder,parser) in self.pretokenize_defs.items():
-            for i in range(0, len(musicparts)):
-                temparr = []
-                tempstr = musicparts[i]
-                while match := finder.search(tempstr):
-                    if match.start() > 0:
-                        temparr.append(tempstr[0:match.start()])
-                    tempres = parser(match.group())
-                    if tempres:
-                        temparr.append(tempres)
-                    else:
-                        temparr.append(None)
-                    tempstr = tempstr[match.end():]
-                if len(temparr) > 0:
-                    temparr.append(tempstr)
-                    replacements.append((i, temparr))
-        for replacement in reversed(replacements):
-            index = replacement[0]
-            out = musicparts.pop(replacement[0])
-            for toadd in reversed(replacement[1]):
-                if toadd:
-                    musicparts.insert(index, toadd)
-        return [x for x in musicparts if len(x) > 0]
+        for (finder,parser) in self.pretokenize_defs:
+            to_replace = []
+            for i, musicpart in enumerate(musicparts):
+                if not isinstance(musicpart, str):
+                    continue
+                matches = finder.finditer(musicpart)
+                for match in matches:
+                    splitobj = { 'index': i, 'replace': match.span() }
+                    splitobj['with'] = parser(match)
+                    to_replace.insert(0, splitobj)
+            i = -1
+            for split in to_replace:
+                if i != split['index']:
+                    i = split['index']
+                    removed = musicparts.pop(i)
+                span = split['replace']
+                before = removed[0:span[0]]
+                after = removed[span[1]:]
+                for value in [after, split['with'], before]:
+                    if value:
+                        musicparts.insert(i, value)
+        return musicparts
 
     # Parser builders
 
@@ -130,11 +144,11 @@ class MusicParser:
             key = self.basetypes[i]
             if key not in self.defs and i > 0:
                 prev_key = self.basetypes[i-1]
-                print("No definition for %s, falling back to %s" % (prev_key, key))
-                print("If %s and %s are supposed to be different, this is a problem." % (prev_key, key))
+                print("No definition for %s, falling back to %s" % (prev_key, key), file=sys.stderr)
+                print("If %s and %s are supposed to be different, this is a problem." % (prev_key, key), file=sys.stderr)
                 key = prev_key
             elif key not in self.defs:
-                print("Failed to load base key %s" % key)
+                print("Failed to load base key %s" % key, file=sys.stderr)
                 continue
             for (k, v) in self.defs[key].items():
                 if isinstance(v, list):
@@ -145,16 +159,11 @@ class MusicParser:
 
     def _build_header_definitions(self):
         header_defs = self.defs["_docstring"]["HeaderInfo"]
-        for key in header_defs["_"]:
-            find_re = self._build_re(key)
-            fr = FindReplace(None, find_re)
-            self.pretokenize_defs[find_re] = fr.run
-        for (key, value) in header_defs.items():
-            if key == "_":
-                continue
-            find_re = self._build_re(value)
-            fr = FindReplace(key, find_re)
-            self.pretokenize_defs[find_re] = fr.run
+        for regex in header_defs:
+            find_re = self._build_re(regex[0])
+            replace_with = None if len(regex) == 1 else regex[1]
+            fr = FindReplace(replace_with, find_re)
+            self.pretokenize_defs.append((find_re, fr.run))
 
     def _build_match(self, name, definition):
         if not self._is_complex(definition):
@@ -298,7 +307,7 @@ class MusicParser:
     def __init__(self, jsondef, register=True):
         self.category_defs = []
         self.write_defs = {}
-        self.pretokenize_defs = {}
+        self.pretokenize_defs = []
         self.read_defs = {}
 
         self.parser_name = ""
@@ -317,7 +326,7 @@ def load_parsers():
                     parserjson = json.loads(parserfile.read_text())
                     MusicParser(parserjson, register=True)
                 except Exception as e:
-                    print("Could not load parser definition: %s" % parserfile.name)
-                    print(e)
+                    print("Could not load parser definition: %s" % parserfile.name, file=sys.stderr)
+                    print(e, file=sys.stderr)
 
 load_parsers()

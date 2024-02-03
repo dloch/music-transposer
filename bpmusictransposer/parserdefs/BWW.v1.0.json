@@ -5,26 +5,28 @@
 		"FormatVersion": "v1.0",
 		"FormatExtensions": ["bww"],
 		"__fontspec__": "(?:<align>[LCRA]),(?:<x>\\d+),(?:<y>\\d+),(?:<font>[^,]*),(?:<size>\\d+),(?:\\d+,){6}(?:\\d+)",
-		"HeaderInfo": {
-      "_": ["Bagpipe Reader:1.0",
-          "Bagpipe Music Writer Gold:1.0",
-          "MIDINoteMappings,\\((\\d+,){20,26}\\d+\\)",
-          "FrequencyMappings,\\((\\d+,){20,26}\\d+\\)",
-          "InstrumentMappings,\\((\\d+,){4,6}\\d+\\)",
-          "GracenoteDurations,\\((\\d+,){8,12}\\d+\\)",
-          "FontSizes,\\((\\d+,)+\\d+\\)",
-          "TuneFormat,\\((\\d+,){2}[FM],[LC],(\\d+,){4}P,\\d+,\\d+\\)",
-          "\"Converted from  BMW Dos file format to Bagpipe Reader 1.0 format using BMWFC32\\.\""
-        ],
-			"title": "\"(?P<title>[^\"]*)\",\\(T,{{_fontspec}}\\)",
-			"tunetype": "\"(?P<tunetype>[^\"]*)\",\\(Y,{{_fontspec}}\\)",
-			"composer": "\"(?P<composer>[^\"]*)\",\\(M,{{_fontspec}}\\)",
-			"footer": "\"(?P<footer>[^\"]*)\",\\(F,{{_fontspec}}\\)",
-			"tempo": "TuneTempo,(?P<tempo>\\d+)"
+		"HeaderInfo": [
+      ["\"Converted from  BMW Dos file format to Bagpipe Reader 1.0 format using BMWFC32\\.\""],
+			["\"(?P<title>[^\"]*)\",\\(T,{{_fontspec}}\\)", "title"],
+			["\"(?P<tunetype>[^\"]*)\",\\([IY],{{_fontspec}}\\)", "tunetype"],
+			["\"(?P<composer>[^\"]*)\",\\(M,{{_fontspec}}\\)", "composer"],
+			["TuneTempo,(?P<tempo>\\d+)", "tempo"],
+      ["Bagpipe Reader:1.0"],
+      ["Bagpipe Music Writer Gold:1.0"],
+      ["MIDINoteMappings,\\((\\d+\\s*,\\s*){20,26}\\d+\\)"],
+      ["FrequencyMappings,\\((\\d+,){20,26}\\d+\\)"],
+      ["InstrumentMappings,\\((\\d+,){4,6}\\d+\\)"],
+      ["GracenoteDurations,\\((\\d+,){8,12}\\d+\\)"],
+      ["FontSizes,\\((\\d+,)+\\d+\\)"],
+      ["TuneFormat,\\((\\d+,){2}[FM],[LC],(\\d+,){4}[LP],\\d+,\\d+\\)"],
+			["\"(?P<footer>[^\"]*)\",\\([FX],{{_fontspec}}\\)", "footer"],
+			["\"(?P<footer>[^\"]*)\"", "footer"]
+    ],
+    "Annotations": {
     }
 	},
 	"_": {
-		"_fontspec": "(?:[ITYMF],)?(?:[LCRA]),(?:\\d+),(?:\\d+),(?:[^,]*),(?:\\d+),(?:\\d+,){6}(?:\\d+)",
+		"_fontspec": "(?:[ITYMF],)?(?:[LCRA]),(?:\\d+),(?:\\d+),(?:[^,]*),(?:\\d+),(?:\\d+,){6,7}(?:\\d+)",
     "note": "{{note}}[lr]?_{{time}}",
 		"dots": "'+",
     "state": "[se]",
@@ -44,10 +46,17 @@
       "_modify": {"heavy": true},
       "_applies": ["birl", "strike"]
     },
+    "a": { "_pattern": "a{{item}}",
+      "_modify": {"A": true},
+      "_applies": ["birl"]
+    },
     "state": { "_pattern": "{{item}}(?P<state>[se])?",
       "_modify": {"state": {"s": "start", "e": "end"}},
       "_applies": ["nlets", "tie"]
     }
+  },
+  "_postprocess": {
+    "C": "common_time"
   },
 	"note": {
 		"LG": "LG",
@@ -87,7 +96,7 @@
   "doublegrace": "{{gnote}}{{snote}}",
   "time_notation": "{{time:0}}_{{time:1}}",
   "cut_common_time": "C_",
-	"dot": "'{{snote}}",
+	"dot": "(?P<dot>'+){{snote}}",
 	"clefc": "&",
 	"grace": "{{gnote}}g",
 	"double": "db{{snote}}",
