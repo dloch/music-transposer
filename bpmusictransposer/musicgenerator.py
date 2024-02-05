@@ -48,6 +48,15 @@ class MusicGenerator:
     def clefc(self, *_args):
         return '%s\\clef treble' % self._get_indent()
 
+    def sharp(self, note):
+        return ""
+
+    def natural(self, note):
+        return ""
+
+    def flat(self, note):
+        return ""
+
     def lineend(self, *_args):
         return '%s\\bar"|"%s\\break\n' % (self._get_indent(), self._get_indent())
 
@@ -62,6 +71,7 @@ class MusicGenerator:
     def repeatend(self, *_args):
         self._indent_level -= 1
         return "%s}%s\\break\n" % (self._get_indent(), self._get_indent())
+
 
     def bar(self, bartype):
         barval = '%s\\bar "%s"' % (self._get_indent(), '%s')
@@ -110,10 +120,24 @@ class MusicGenerator:
                 return normal_note
         return note
 
+    def fermata(self, *_args):
+        return "^\\fermata"
+
     def footer(self, note):
         if not self.prev_note:
             return '^"%s"' % note
         return '_"%s"' % note
+
+    def title(self, note):
+        # TODO: Reformat for when we have multiple pieces in one file
+        return self.footer(note)
+    def tunetype(self, note):
+        return self.footer(note)
+    def composer(self, note):
+        return self.footer(note)
+
+    def tempo(self, note):
+        return self.footer("Tempo %s" % note)
 
     def note_above(self, note, starting = "D"):
         note_index = self.sorted_notes.index(note)
@@ -156,18 +180,30 @@ class MusicGenerator:
         return "%s\\set Score.repeatCommands = #'((volta #f))%s" % (self._get_indent(), self._get_indent())
 
     def strike(self, value, modifiers={}):
-        return self.grace(value)
+        if not modifiers:
+            return self.grace(value)
+        result = []
+        if "half" in modifiers:
+            # half strike OFF OF value
+            result.append(value)
+        result.append("LG" if "low" in modifiers else self.strike_notes[value])
+        return self.build_embellishment(result)
 
-    def gracestrike(self, gracenote, from_note):
+    def gracestrike(self, gracenote, from_note, modifiers={}):
         gnote = gracenote
         strike_note = self.strike_notes[from_note]
         if gracenote == "LG":
             gnote = "HG"
             strike_note = self.note_below(from_note)
+        if "low" in modifiers:
+            strike_note = "LG"
         return self.build_embellishment([gnote, from_note, strike_note])
 
     def grace(self, value):
         return self.build_embellishment([value])
+
+    def doublegrace(self, *values):
+        return self.build_embellishment(values)
 
     def double(self, note, modifiers = {}):
         doubling = []
@@ -183,6 +219,21 @@ class MusicGenerator:
 
     def throw(self):
         return self.build_embellishment(["LG", "D", "C"])
+
+    def pele(self, note, modifiers={}):
+        result = []
+        if 'thumb' in modifiers:
+            result.append('HA')
+        elif 'half' in modifiers:
+            pass
+        else:
+            result.append('HG')
+        result += [note, self.note_above(note, starting="E"), note]
+        if 'low' in modifiers:
+            result.append('LG')
+        else:
+            result.append(self.strike_notes[note])
+        return self.build_embellishment(result)
 
     def nlets(self, *args, **kwargs):
         return ''
@@ -210,24 +261,57 @@ class MusicGenerator:
             pass
         elif "thumb" in modifiers:
             result.append("HA")
-        elif "a" in modifiers:
+        elif "A" in modifiers:
             result.append("LA")
         elif "heavy" in modifiers:
             result.append("HG")
         return self.build_embellishment(result + ["LG", "LA", "LG"])
 
-    def _grip_helper(self):
-        mid_note = ["B"] if self.prev_note == "D" else ["D"]
+    def _grip_helper(self, prev_note=None):
+        mid_note = ["B"] if prev_note == "D" else ["D"]
         return ["LG"] + mid_note + ["LG"]
 
-    def grip(self):
-        return self.build_embellishment(self._grip_helper())
+    def grip(self, *note, modifiers={}):
+        if not note[0]:
+            return self.build_embellishment(self._grip_helper(self.prev_note))
+        if not modifiers and note[0] == "B":
+            return self.build_embellishment(self._grip_helper("D"))
+        result = []
+        if "heavy" in modifiers:
+            result.append('HG')
+        elif "thumb" in modifiers:
+            result.append('HA')
+        return self.build_embellishment(result + [note[0], "LG", "D", "LG"])
+
+    def dgrip(self):
+        return self.build_embellishment(self._grip_helper("D"))
 
     def tarluath(self):
-        return self.build_embellishment(self._grip_helper() + ["E"])
+        return self.build_embellishment(self._grip_helper(self.prev_note) + ["E"])
 
     def rodin(self):
         return self.build_embellishment(["LG", "B", "LG"])
+
+    def darado(self, modifiers={}):
+        result = []
+        if "half" not in modifiers:
+            result.append("LG")
+        result += ["D", "LG", "C", "LG"]
+        return self.build_embellishment(result)
+
+    def edre(self, *values, modifiers={}):
+        # TODO: Fix this whole thing
+        # edres depend on the next note, maybe?
+        # On B, with edre("LG"), we should return "HG", "B", "LG", "D", "LG" apparently
+        # I don't know
+        result = []
+        low_note = "LA" if len(values) == 0 else values[0]
+        if "heavy" in modifiers:
+            result.append("HG")
+        elif "thumb" in modifiers:
+            result.append("HA")
+        result += ["E", low_note, "F", low_note]
+        return
 
     def _decode(self, note):
         'A note is either: "funcname" or ("funcname", [args])'
@@ -294,7 +378,7 @@ class MusicGenerator:
         result = []
         for i in range(0, len(tune.notes)):
             note = tune.notes[i]
-            if not note or note == "_ignore":
+            if not note or note == '' or note == "_ignore":
                 continue
             if self._in_endings != None and not self._in_endings and note[0] != 'endingstart':
                 self._in_endings = None

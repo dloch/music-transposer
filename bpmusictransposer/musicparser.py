@@ -24,6 +24,11 @@ class MusicParser:
 
     argument_re = re.compile('{{([^}]*)}}')
 
+    def get_tune_from_file(self, filename):
+        with open(filename, encoding=self.encoding) as file:
+            tunestr = file.read()
+        return self.get_tune(tunestr)
+
     def get_tune(self, musicstr):
         return self.parse(Tune(), musicstr)
 
@@ -44,13 +49,14 @@ class MusicParser:
                     header[note[0]] = note[1]
                     remove.insert(0, i)
         for i in remove:
-            preprocessed_parts.pop(i)[0]
+            preprocessed_parts.pop(i)
         header = {x[0]: x[1] for x in takewhile(lambda x : isinstance(x, tuple), preprocessed_parts)}
         tune.set_values(header)
         note_result = []
+        splitre = re.compile("[\s]")
         for note_section in islice(preprocessed_parts, len(header), None):
             if isinstance(note_section, str):
-                for token in note_section.split():
+                for token in splitre.split(note_section):
                     note_result.append(self._parse_token(token))
             else:
                 note_result.append(note_section)
@@ -112,6 +118,13 @@ class MusicParser:
         return tuple(result)
 
     def _pretokenize_parse(self, musicstr):
+        # This logic is still bad, pls fix
+        # It should match some string with a group or not, or mix:
+        # "abcd I should match this in a group, and this not in a group efgh"
+        # Chop it into pieces on the match:
+        # "abcd ","[redacted]", " efgh"
+        # Then shove it back together with a directive:
+        # "abcd ", ["groupname", ("I should match this in a group"), {}], " efgh"
         musicparts = re.split('\n{2,}', musicstr)
         replacements = []
         for (finder,parser) in self.pretokenize_defs:
@@ -132,6 +145,7 @@ class MusicParser:
                 span = split['replace']
                 before = removed[0:span[0]]
                 after = removed[span[1]:]
+                removed = before
                 for value in [after, split['with'], before]:
                     if value:
                         musicparts.insert(i, value)
@@ -299,6 +313,7 @@ class MusicParser:
 
     def _load_parser(self, jsondef, register=False):
         self.defs = jsondef
+        self.encoding = jsondef.get("Encoding", "utf-8")
         self._build_header_definitions()
         self._build_read_definitions()
         if register:

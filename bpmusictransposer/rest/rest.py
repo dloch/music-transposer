@@ -18,7 +18,7 @@ def initialize(name):
     atexit.register(cleanup.atexit)
     return app
 
-app = initialize(__name__)
+app = initialize("bpmusictransposer.rest")
 
 header = '<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>'
 
