@@ -38,10 +38,10 @@ class ThreadedWorker(Thread):
                     os.unlink(filename)
                     tune = mp.get_tune(tunestr)
                     resultstr = mg.from_tune(tune)
-                    with open(filename, 'x') as file:
+                    with open("%s.ly" % filename, 'x') as file:
                         file.write(resultstr)
                     print("%d: Completed internal processing of %s" % (get_ident(), filename))
-                    result = subprocess.run(["/usr/bin/lilypond", "-o", filename, filename]).check_returncode()
+                    result = subprocess.run(["/usr/bin/lilypond", "-o", filename, "%s.ly" % filename]).check_returncode()
                     print("%d: Completed processing of %s" % (get_ident(), jobid))
                     self.set_job_status(jobid, { "status": "Complete" })
                     self.write_jobdb()

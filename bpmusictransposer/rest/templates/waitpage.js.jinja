@@ -1,5 +1,4 @@
 $(document).ready(function(){
-  var target_uuid = $("#resultContainer").attr("target")
   var completed = false
 
   var set_state = function(status){
@@ -9,20 +8,20 @@ $(document).ready(function(){
   var displayResults = function(){
     var result_display = $('<ul>')
     for(var x in {file: 'PDF', source: 'LilyPond file'}){
-      result_display.append($('<li>').append($('<a>').attr('href', '/parse/result/' + target_uuid + '/' + x).text('Converted ' + x)))
+      result_display.append($('<li>').append($('<a>').attr('href', '{{ url_for("get_parse_result", parse_uuid=parse_uuid) }}/' + x).text('Converted ' + x)))
     }
     $('#resultContainer').append(result_display)
 
     $('#resultContainer').append($('<object>')
       .attr('type', 'application/pdf')
-      .attr('data', '/parse/result/' + target_uuid + '/file')
+      .attr('data', '{{ url_for("get_parse_file", parse_uuid=parse_uuid) }}')
       .attr('width', 800)
       .attr('height', 1200)
     );
   }
 
   var checkSuccess = function(){
-    $.ajax('/parse/result/' + target_uuid,
+    $.ajax('{{ url_for("get_parse_result", parse_uuid=parse_uuid) }}',
       {
         complete: function(response){
           console.error(response.responseText)

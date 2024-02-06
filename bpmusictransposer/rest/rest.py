@@ -6,6 +6,7 @@ import os, atexit
 
 def initialize(name):
     app = Flask(name)
+    app.config['APPLICATION_ROOT'] = os.environ.get("FLASK_APPLICATION_ROOT", '/')
     app.config['UPLOAD_FOLDER'] = os.environ.get('FLASK_UPLOAD_FOLDER', '/tmp')
     app.config['JOB_LIST'] = os.environ.get('JOB_LIST', 'job.list')
     with app.app_context():
@@ -40,7 +41,7 @@ def new_parse_request():
         app.worker.queue_job(job_uuid, f.filename)
     except Exception as e:
         return make_response(json.dumps({"result":"error"}), 500)
-    return redirect("/parse/%s" % job_uuid, 302)
+    return redirect(url_for('parse_request_status', parse_uuid=job_uuid), 302)
 
 def get_parse_status(parse_uuid):
     if status := app.worker.get_job_status(parse_uuid):
@@ -50,7 +51,7 @@ def get_parse_status(parse_uuid):
 @app.route("/parse/<string:parse_uuid>")
 def parse_request_status(parse_uuid):
     if result := app.worker.get_job_status(parse_uuid):
-        return render_template("waitpage.html.jinja", page_js=url_for('static', filename='waitpage.js'), **result)
+        return render_template("waitpage.html.jinja", page_js=url_for('get_waitpage_js', parse_uuid=parse_uuid), **result)
     return make_response("Not found", 404)
 
 @app.route("/parse/result/<string:parse_uuid>")
@@ -70,6 +71,10 @@ def get_parse_source(parse_uuid):
     if response := get_file(parse_uuid, "ly"):
         return response
     return make_response("Not Found", 404)
+
+@app.route("/js/waitpage.js/<string:parse_uuid>")
+def get_waitpage_js(parse_uuid):
+    return render_template("waitpage.js.jinja", parse_uuid=parse_uuid)
 
 def get_file(parse_uuid, extension):
     if job_state := app.worker.get_job_status(parse_uuid):

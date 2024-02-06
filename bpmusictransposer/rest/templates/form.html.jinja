@@ -20,7 +20,7 @@
   <ul id="conversions">
     {%- for result in results %}
       <li status="{{ result['status'] }}">
-        <a status="{{ result['status'] }}" href="/parse/{{ result['uuid'] }}">{{ result['name'] }}</a>
+        <a status="{{ result['status'] }}" href="{{ url_for('parse_request_status', parse_uuid=result['uuid'] )}}">{{ result['name'] }}</a>
       </li>
     {% endfor %}
   </ul>
