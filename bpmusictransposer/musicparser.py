@@ -8,7 +8,7 @@ from . import parserdefs
 class FindReplace:
     def run(self, match):
         if self.key == None:
-            return self.key
+            return None
         return (self.key, match.group(self.key))
 
     def __init__(self, key, regex):
@@ -125,31 +125,56 @@ class MusicParser:
         # "abcd ","[redacted]", " efgh"
         # Then shove it back together with a directive:
         # "abcd ", ["groupname", ("I should match this in a group"), {}], " efgh"
-        musicparts = re.split('\n{2,}', musicstr)
-        replacements = []
-        for (finder,parser) in self.pretokenize_defs:
-            to_replace = []
+        musicparts = [self._fix_broken_args(musicstr)]
+        for (finder, parser) in self.pretokenize_defs:
+            replacements = []
             for i, musicpart in enumerate(musicparts):
                 if not isinstance(musicpart, str):
+                    # We've already tokenized this part
                     continue
-                matches = finder.finditer(musicpart)
+                matches = [ x for x in reversed([match for match in finder.finditer(musicpart)])]
+                if not matches:
+                    continue
+                # Work through matches backwards:
+                before = musicpart
+                replacement = []
                 for match in matches:
-                    splitobj = { 'index': i, 'replace': match.span() }
-                    splitobj['with'] = parser(match)
-                    to_replace.insert(0, splitobj)
-            i = -1
-            for split in to_replace:
-                if i != split['index']:
-                    i = split['index']
-                    removed = musicparts.pop(i)
-                span = split['replace']
-                before = removed[0:span[0]]
-                after = removed[span[1]:]
-                removed = before
-                for value in [after, split['with'], before]:
-                    if value:
-                        musicparts.insert(i, value)
+                    replacement.append(before[match.end():])
+                    before = before[0:match.start()]
+                    token = parser(match)
+                    if token:
+                        replacement.append(token)
+                if before:
+                    replacement.append(before)
+
+                # Now we have a list of [lastpart, lastpart-1...], queue up replacing our actual string:
+                replacements.insert(0, (i, replacement))
+            for (i, replacement) in replacements:
+                musicparts.pop(i)
+                # Bounce out our current section:
+                # Jam in replacements in (reverse) order:
+                for replacement_part in replacement:
+                    musicparts.insert(i, replacement_part)
+        # We should be parsed
         return musicparts
+                
+    def _fix_broken_args(self, musicstr):
+        newline_re = re.compile("[\n\r]")
+        parts = newline_re.split(musicstr)
+        incomplete_re = re.compile("[^\\[{(]*[\\[({][^\\]})]*")
+        complete_re = re.compile(".*[({\\[({].*[)}\\]]")
+        result = []
+        in_broken_args = False
+        for part in parts:
+            if in_broken_args:
+                result[-1] += part
+                if complete_re.search(result[-1]):
+                    in_broken_args = False
+            else:
+                result.append(part)
+                if incomplete_re.fullmatch(part):
+                    in_broken_args = True
+        return "\n".join(result)
 
     # Parser builders
 

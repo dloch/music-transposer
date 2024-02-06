@@ -13,6 +13,7 @@ def parse(filename):
         tune = MusicParser.parsers['BagpipeMusicWriter'].get_tune(file.read())
     return tune
 
-if __name__ == "__main__":
+def main():
     toparse = sys.argv[1:]
     [generate(parse(filename), "%s.ly" % filename) for filename in toparse]
+    return 0

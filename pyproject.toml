@@ -26,7 +26,7 @@ classifiers = [
 ]
 
 [project.scripts]
-transpose-music = "bpmusictransposer:transpose"
+transpose-music = "bpmusictransposer.transpose:main"
 
 [project.optional-dependencies]
 web = ["flask"]

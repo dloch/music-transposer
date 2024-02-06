@@ -165,14 +165,20 @@ class MusicGenerator:
         self.prev_note = value
         return result 
 
+    def rest(self, length):
+        return '%sr%d' % (self._get_indent(), length)
+
     def time_notation(self, upper, lower):
         return '%s\\time %s/%s' % (self._get_indent(), upper, lower)
 
-    def endingstart(self, num):
+    def endingstart(self, *num):
         result = []
         self._in_endings = True
         self._indent_level += 1
-        return "%s\set Score.repeatCommands = #'((volta \"%s\"))%s" % (self._get_indent(), num, self._get_indent())
+        template = "%s\set Score.repeatCommands = #'((volta \"%s\"))%s" % (self._get_indent(), "%s", self._get_indent())
+        if len(num) > 0:
+            return template % num[0]
+        return template % ""
 
     def endingend(self):
         self._in_endings = False
@@ -186,7 +192,7 @@ class MusicGenerator:
         if "half" in modifiers:
             # half strike OFF OF value
             result.append(value)
-        result.append("LG" if "low" in modifiers else self.strike_notes[value])
+        result.append("C" if "light" in modifiers else self.strike_notes[value])
         return self.build_embellishment(result)
 
     def gracestrike(self, gracenote, from_note, modifiers={}):
@@ -195,9 +201,22 @@ class MusicGenerator:
         if gracenote == "LG":
             gnote = "HG"
             strike_note = self.note_below(from_note)
-        if "low" in modifiers:
-            strike_note = "LG"
+        if "light" in modifiers:
+            strike_note = "C"
         return self.build_embellishment([gnote, from_note, strike_note])
+
+    def dblstrike(self, from_note, modifiers={}):
+        startnote = {"heavy": ["HG"],
+            "thumb": ["HA"]}
+        result = []
+        for k in modifiers.keys():
+            if k in startnote:
+                result = startnote[k]
+        drop_note = self.strike_notes[from_note]
+        if "light" in modifiers:
+            drop_note = "C"
+        return self.build_embellishment(result + [from_note, drop_note, from_note])
+
 
     def grace(self, value):
         return self.build_embellishment([value])
@@ -217,8 +236,15 @@ class MusicGenerator:
             return self.build_embellishment(doubling + [self.note_below(note)])
         return self.build_embellishment(doubling + [note, self.note_above(note)])
 
-    def throw(self):
-        return self.build_embellishment(["LG", "D", "C"])
+    def throw(self, modifiers={}):
+        if "half" in modifiers:
+            result = ["D", "C"]
+        else:
+            result = ["LG", "D", "C"]
+        if "heavy" in modifiers:
+            result.insert(0, "LG")
+        return self.build_embellishment(result)
+
 
     def pele(self, note, modifiers={}):
         result = []
@@ -289,8 +315,27 @@ class MusicGenerator:
     def tarluath(self):
         return self.build_embellishment(self._grip_helper(self.prev_note) + ["E"])
 
+    def dtarluath(self):
+        return self.build_embellishment(self._grip_helper("D") + ["E"])
+
+    def crunluath(self, modifiers={}):
+        return self.build_embellishment(["LG", "D", "LG", "E", "LA", "F", "LA"])
+
+    def hiharin(self, modifiers={}):
+        return self.build_embellishment(["D", "LA", "LG", "LA", "LG"])
+
     def rodin(self):
         return self.build_embellishment(["LG", "B", "LG"])
+
+    def cadence(self, *notes, modifiers={}):
+        builder = []
+        if "fermata" in modifiers:
+            # TODO: Shove a fermata on the cadence
+            pass
+        # TODO: Make the behavior consistent with what's expected
+        patterns = ["", [8], [32, 8], [32,8,32]]
+        patterned_notes = map("".join, zip(map(lambda x: self.notes[x], notes), pattern[len(notes)]))
+        return "\grace { %s }" % " ".join(patterned_notes)
 
     def darado(self, modifiers={}):
         result = []
@@ -311,7 +356,23 @@ class MusicGenerator:
         elif "thumb" in modifiers:
             result.append("HA")
         result += ["E", low_note, "F", low_note]
-        return
+        return self.build_embellishment(result)
+
+    def dare(self, *values, modifiers={}):
+        result = ["F", "E", "HG", "E"]
+        if "heavy" in modifiers:
+            result.insert(0, "HG")
+        elif "thumb" in modifiers:
+            result.insert(0, "HA")
+        return self.build_embellishment(result)
+
+    def chedare(self, *values, modifiers={}):
+        result = ["F", "E", "HG", "E", "F", "E"]
+        return self.build_embellishment(result)
+
+    def endari(self, *values, modifiers={}):
+        result = ["E", "LA", "F", "LA"]
+        return self.build_embellishment(result)
 
     def _decode(self, note):
         'A note is either: "funcname" or ("funcname", [args])'
