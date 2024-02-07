@@ -75,6 +75,73 @@ class TestPretokenizeParser(unittest.TestCase):
             ["double", ("HA",), {"half": True}]
         ]
         self._test_helper(test_string, expected)
+    
+    def test_rest(self):
+        test_string = "REST_4 REST_8 REST_16"
+        expected = [
+            ["rest", ('4',), {}],
+            ["rest", ('8',), {}],
+            ["rest", ('16',), {}]
+        ]
+        self._test_helper(test_string, expected)
 
+    def test_gracestrike(self):
+        test_string = "lgstla lastb bstc cstd dste estf fstg gsta tstla"
+        expected = [
+            ["gracestrike", ("LG","LA"), {}],
+            ["gracestrike", ("LA","B"), {}],
+            ["gracestrike", ("B","C"), {}],
+            ["gracestrike", ("C","D"), {}],
+            ["gracestrike", ("D","E"), {}],
+            ["gracestrike", ("E","F"), {}],
+            ["gracestrike", ("F","G"), {}],
+            ["gracestrike", ("HG","HA"), {}],
+            ["gracestrike", ("HA","LA"), {}]
+        ]
+        self._test_helper(test_string, expected)
+
+    def test_doublegrace(self):
+        test_string = "lgla lab bc cd ef fg gla tlg thg"
+        expected = [
+            ["doublegrace", ("LG","LA"), {}],
+            ["doublegrace", ("LA","B"), {}],
+            ["doublegrace", ("B","C"), {}],
+            ["doublegrace", ("C","D"), {}],
+            ["doublegrace", ("E","F"), {}],
+            ["doublegrace", ("F","HG"), {}],
+            ["doublegrace", ("HG","LA"), {}],
+            ["doublegrace", ("HA","LG"), {}],
+            ["doublegrace", ("HA","HG"), {}]
+        ]
+        self._test_helper(test_string, expected)
+
+    def test_time_notation(self):
+        test_string = "4_4 6_8 12_8 C C_ c c_"
+        expected = [
+            ["time_notation", ('4','4'), {}],
+            ["time_notation", ('6','8'), {}],
+            ["time_notation", ('12','8'), {}],
+            ["time_notation", ('4','4'), {}],
+            ["time_notation", ('2','2'), {}],
+            ["time_notation", ('4','4'), {}],
+            ["time_notation", ('2','2'), {}]
+        ]
+        self._test_helper(test_string, expected)
+
+    def test_clefc(self):
+        test_string = "clefc"
+        expected = [
+            ["clefc", [], {}]
+        ]
+        self._test_helper(test_string, expected)
+
+    def test_grip(self):
+        test_string = "grp hgrp grpb"
+        expected = [
+            ["grip", (), {}],
+            ["grip", (), {"half": True}],
+            ["grip", ("B",), {}]
+        ]
+        self._test_helper(test_string, expected)
 
 unittest.main()
