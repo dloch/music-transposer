@@ -185,14 +185,18 @@ class MusicGenerator:
         self._indent_level -= 1
         return "%s\\set Score.repeatCommands = #'((volta #f))%s" % (self._get_indent(), self._get_indent())
 
-    def strike(self, value, modifiers={}):
+    def strike(self, *values, modifiers={}):
+        # TODO: Fix the parser to not do weird shit
+        i = 0
+        while not values[i]:
+            i += 1
         if not modifiers:
-            return self.grace(value)
+            return self.grace(values[i])
         result = []
         if "half" in modifiers:
             # half strike OFF OF value
-            result.append(value)
-        result.append("C" if "light" in modifiers else self.strike_notes[value])
+            result.append(values[1])
+        result.append("C" if "light" in modifiers else self.strike_notes[values[1]])
         return self.build_embellishment(result)
 
     def gracestrike(self, gracenote, from_note, modifiers={}):

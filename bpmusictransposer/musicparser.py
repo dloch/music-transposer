@@ -50,7 +50,6 @@ class MusicParser:
                     remove.insert(0, i)
         for i in remove:
             preprocessed_parts.pop(i)
-        header = {x[0]: x[1] for x in takewhile(lambda x : isinstance(x, tuple), preprocessed_parts)}
         tune.set_values(header)
         note_result = []
         splitre = re.compile("[\s]")

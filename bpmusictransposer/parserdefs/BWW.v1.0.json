@@ -121,7 +121,7 @@
 	"clefc": "&",
 	"grace": "{{gnote}}g",
 	"double": "db{{snote}}",
-	"strike": ["str?{{snote}}", "echo{{snote:1}}"],
+  "strike": ["str?{{snote}}", "echo{{snote:1}}"],
 	"grip": "grp{{snote}}?",
 	"tarluath": "tar",
 	"dtarluath": "tarb",
