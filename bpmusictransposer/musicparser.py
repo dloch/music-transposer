@@ -52,11 +52,21 @@ class MusicParser:
             preprocessed_parts.pop(i)
         tune.set_values(header)
         note_result = []
-        splitre = re.compile("[\s]")
+        splitre = re.compile("[-\s]")
         for note_section in islice(preprocessed_parts, len(header), None):
             if isinstance(note_section, str):
-                for token in splitre.split(note_section):
-                    note_result.append(self._parse_token(token))
+                for token in filter(lambda x : x, splitre.split(note_section)):
+                    result = self._parse_token(token)
+                    if isinstance(result, str):
+                        if result in self.defs:
+                            result = [result, (), {}]
+                        else:
+                            print("Could not parse string, dumping: %s" % result, file=sys.stderr)
+                            continue
+                    args = [x for x in result[1] if x]
+                    result[1] = tuple(args)
+                    if result[0]:
+                        note_result.append(result)
             else:
                 note_result.append(note_section)
         for note in filter(lambda x : x != None, note_result):
@@ -71,9 +81,9 @@ class MusicParser:
                             next_note[2]['dot'] = len(note[1][0])
                             break
             elif self._get_note_type(note) == "common_time":
-                tune.notes.append(["time_notation", (4, 4), {}])
+                tune.notes.append(["time_notation", ('4', '4'), {}])
             elif self._get_note_type(note) == "cut_common_time":
-                tune.notes.append(["time_notation", (2, 2), {}])
+                tune.notes.append(["time_notation", ('2', '2'), {}])
             else:
                 tune.notes.append(note)
         times = [x for x in tune.notes if isinstance(x, list) and x[0] == "time_notation"]
@@ -104,7 +114,7 @@ class MusicParser:
                     return modf(args, self.read_defs[c['target']](defargs))
                 return modf(args, [target, (), {}])
         if token in self.defs['_postprocess']:
-            return self.defs['_postprocess'][token]
+            return [self.defs['_postprocess'][token], (), {}]
         return token
 
     def _resolve_args(self, args):

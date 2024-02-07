@@ -41,7 +41,7 @@
   "_modifiers": {
     "half": { "_pattern": "h{{item}}",
       "_modify": {"half": true},
-      "_applies": ["double", "grip", "birl", "darado", "pele", "throw", "strike", "dblstrike", "trplstrike"]
+      "_applies": ["double", "grip", "birl", "darado", "pele", "throw", "strike", "doublestrike", "triplestrike"]
 	  },
     "thumb": { "_pattern": "t{{item}}",
 			"_modify": {"thumb": true},
@@ -72,12 +72,17 @@
       "_applies": ["strike", "pele"]
     },
     "state": { "_pattern": "{{item}}(?P<state>[se])?",
-      "_modify": {"state": {"s": "start", "e": "end"}},
-      "_applies": ["nlets", "tie"]
+      "_modify": {"state": {"s": "start", "e": "end", "S": "start", "E": "end"}},
+      "_applies": ["tuplets", "tie"]
+    },
+    "piobreachd_notation": { "_pattern": "p{{item}}",
+      "_modify": {"pio": true},
+      "_applies": ["dare", "hiharin", "edre", "grip", "embari"]
     }
   },
   "_postprocess": {
-    "C": "common_time"
+    "C": "common_time",
+    "c": "common_time"
   },
 	"note": {
 		"LG": ["LG", "Lg"],
@@ -125,20 +130,25 @@
 	"grip": "grp{{snote}}?",
 	"tarluath": "tar",
 	"dtarluath": "tarb",
-  "crunluath": "crunl",
-  "hiharin": "hiharin",
 	"darado": ["bubly", "darado", "darodo"],
 	"birl": ["brl", "br"],
 	"throw": "thrd",
-	"dblstrike": "st2{{snote}}",
-	"trplstrike": "st3{{snote}}",
+	"doublestrike": "st2{{snote}}",
+	"triplestrike": "st3{{snote}}",
 	"tie": ["\\^t", "\\^t{{snote}}"],
-  "nlets": "\\^{{count}}{{time}}?{{snote}}?",
-	"cadence": ["cad{{snote}}", "cad{{snote}}{{snote:1}}", "cad{{snote}}{{snote:1}}{{snote:2}}"],
+  "tuplets": "\\^{{count}}{{time}}?{{snote}}?",
+
+  "crunluath": "crunl",
+  "hiharin": "hiharin",
+  "cadence": ["cad{{snote}}", "cad{{snote}}{{snote:1}}", "cad{{snote}}{{snote:1}}{{snote:2}}"],
 	"rodin": "rodin",
   "pele": "pel{{snote}}",
   "edre": "edre",
   "dare": "dare",
+  "endari": "endari",
+  "embari": "embari",
+  "chedare": "chedare",
+
 	"repeatstart": "I!''",
 	"repeatend": "''!I",
 	"barend": "!",

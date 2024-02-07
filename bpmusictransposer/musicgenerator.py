@@ -209,7 +209,7 @@ class MusicGenerator:
             strike_note = "C"
         return self.build_embellishment([gnote, from_note, strike_note])
 
-    def dblstrike(self, from_note, modifiers={}):
+    def doublestrike(self, from_note, modifiers={}):
         startnote = {"heavy": ["HG"],
             "thumb": ["HA"]}
         result = []
@@ -221,6 +221,17 @@ class MusicGenerator:
             drop_note = "C"
         return self.build_embellishment(result + [from_note, drop_note, from_note])
 
+    def triplestrike(self, from_note, modifiers={}):
+        result = []
+        gracenote = self._(modifiers)
+        if gracenote:
+            result.append(gracenote)
+        drop_note = self.strike_notes[from_note]
+        if "light" in modifiers:
+            drop_note = "C"
+        if "half" not in modifiers:
+            result.append(from_note)
+        return self.build_embellishment(result + [drop_note, from_note, drop_note, from_note])
 
     def grace(self, value):
         return self.build_embellishment([value])
@@ -265,8 +276,13 @@ class MusicGenerator:
             result.append(self.strike_notes[note])
         return self.build_embellishment(result)
 
-    def nlets(self, *args, **kwargs):
-        return ''
+    def tuplets(self, *args, **kwargs):
+        print(args)
+        if "start" in kwargs:
+            self._indent_level += 1
+            return "\\tuplet %s/%s {" % args
+        self._indent_level -= 1
+        return "}"
 
     def tie(self, *_args, modifiers={}):
         # Drop args, in case the tie specifies a note
@@ -297,12 +313,19 @@ class MusicGenerator:
             result.append("HG")
         return self.build_embellishment(result + ["LG", "LA", "LG"])
 
+    def _start_modifier_helper(self, modifiers):
+        if "heavy" in modifiers:
+            return "HG"
+        elif "thumb" in modifiers:
+            return "HA"
+        return None
+
     def _grip_helper(self, prev_note=None):
         mid_note = ["B"] if prev_note == "D" else ["D"]
         return ["LG"] + mid_note + ["LG"]
 
     def grip(self, *note, modifiers={}):
-        if not note[0]:
+        if len(note) == 0 or not note[0]:
             return self.build_embellishment(self._grip_helper(self.prev_note))
         if not modifiers and note[0] == "B":
             return self.build_embellishment(self._grip_helper("D"))
