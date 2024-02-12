@@ -69,29 +69,58 @@ class MusicParser:
                         note_result.append(result)
             else:
                 note_result.append(note_section)
-        for note in filter(lambda x : x != None, note_result):
-            if self._get_note_type(note) == "dot":
-                for i in range(-1, -len(tune.notes), -1):
-                    next_note = tune.notes[i]
-                    if isinstance(next_note, list) and next_note[0] == "note":
-                        if 'dot' in next_note[2]:
-                            next_note[2]['dot'] += len(note[1][0])
-                            break
-                        else:
-                            next_note[2]['dot'] = len(note[1][0])
-                            break
-            elif self._get_note_type(note) == "common_time":
-                tune.notes.append(["time_notation", ('4', '4'), {}])
-            elif self._get_note_type(note) == "cut_common_time":
-                tune.notes.append(["time_notation", ('2', '2'), {}])
-            else:
-                tune.notes.append(note)
+        tune.notes = self.post_process(note_result)
         times = [x for x in tune.notes if isinstance(x, list) and x[0] == "time_notation"]
         if len(times) == 0:
             tune.time = (4,4)
         else:
             tune.time = tuple(map(int, times[0][1]))
         return tune
+
+
+    def post_process(self, notes):
+        def _add_dots_to_previous_note(acc, note):
+            for i in range(-1, -len(notes), -1):
+                next_note = notes[i]
+                if isinstance(next_note, list) and next_note[0] == "note":
+                    next_note[2]['dot'] =  next_note[2].get('dot', 0) + len(note[1][0])
+                    return {}
+            return {}
+        def _add_tuplet_to_previous_notes(acc, note):
+            print(note)
+            count = note[1][0]
+            if "state" in note[2]:
+                if "state" == "start":
+                    print("Tuplet start: %s" % count)
+                    return { "tuplet": count }
+                elif "state" == "end":
+                    return { "tuplet": None }
+                return
+            return
+        def _simple_add(note):
+            def _add(acc, x):
+                acc.append(note)
+                return {}
+            return _add
+        result = []
+        state = {}
+        handlers = {
+            "common_time": _simple_add(["time_notation", ('4','4'), {}]),
+            "cut_common_time": _simple_add(["time_notation", ('2','2'), {}]),
+            "dot": _add_dots_to_previous_note,
+            "tuplet": _add_tuplet_to_previous_notes
+        }
+        for note in filter(lambda x : x != None, notes):
+            ntype = self._get_note_type(note)
+            if ntype in handlers:
+                state.update(handlers[ntype](result, note))
+            else:
+                add_value = note
+                if ntype == "note":
+                    if "in_tuplet" in state:
+                        add_value[2]['tuplet'] = True
+                result.append(add_value)
+        return result
 
     def tokenize(self, musicstr):
         return musicstr.trim().split()
@@ -260,6 +289,7 @@ class MusicParser:
         def add(match, notedef):
             toadd = {}
             result_dict = match.groupdict()
+            print(result_dict)
             for (k, v) in result_dict.items():
                 if k in modifier and v != None:
                     toadd[k] = modifier[k][v] if isinstance(modifier[k], dict) else modifier[k]
@@ -270,6 +300,8 @@ class MusicParser:
     def _has_selector(self, modifier):
         result = False
         for (k,v) in modifier.items():
+            print(k)
+            print(v)
             result = result or isinstance(v, dict)
         return result
 

@@ -1,0 +1,40 @@
+import unittest
+from bpmusictransposer.musicparser import MusicParser
+
+class TestPretokenizeParser(unittest.TestCase):
+    @classmethod
+    def setUp(self):
+        self.maxDiff = None
+        self.parser = MusicParser.parsers["BagpipeMusicWriter"]
+
+    def _test_helper(self, test_string, exp_result):
+        tune = self.parser.get_tune(test_string)
+        self.assertEqual(exp_result, tune.notes)
+
+    def test_basic_split(self):
+        test_string = "!gg"
+        expected = [
+          ["barend", (), {}],
+          ["grace", ("HG",), {}]
+        ]
+        self._test_helper(test_string, expected)
+
+    def test_split_ordering(self):
+        test_string = "''!Itgg"
+        expected = [
+          ["partend", (), {}],
+          ["grace", ("G",), {}]
+        ]
+        self._test_helper(test_string, expected)
+
+    def test_split_ambiguous(self):
+        test_string = "I!''HA_8"
+        expected = [
+          ["repeatstart", (), {}],
+          ["note", ("HA", 8), {}]
+        ]
+        self._test_helper(test_string, expected)
+
+
+
+unittest.main()

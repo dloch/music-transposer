@@ -238,11 +238,11 @@ class TestPretokenizeParser(unittest.TestCase):
             ["note", ("E",8), {"tuplet": 3}],
             ["tuplet", (3,), {"state": "end"}],
             ["grace", ("G",), {}],
-            ["tuplet", (3,), {"state": True}],
+            ["tuplet", (3,), {"state": "start"}],
             ["note", ("LA",8), {"tuplet": 3}],
             ["note", ("B",8), {"tuplet": 3}],
             ["note", ("C",8), {"tuplet": 3}],
-            ["tuplet", (3,), {"state": True}]
+            ["tuplet", (3,), {"state": "end"}]
         ]
         self._test_helper(test_string, expected)
 
