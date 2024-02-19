@@ -23,7 +23,7 @@ class MusicGenerator:
                 "B": "LG",
                 "C": "LG",
                 "D": "LG",
-                "E": "A",
+                "E": "LA",
                 "F": "E",
                 "HG": "F",
                 "HA": "HG"
@@ -48,13 +48,13 @@ class MusicGenerator:
     def clefc(self, *_args):
         return '%s\\clef treble' % self._get_indent()
 
-    def sharp(self, note):
+    def sharp(self, note, **kwargs):
         return ""
 
-    def natural(self, note):
+    def natural(self, note, **kwargs):
         return ""
 
-    def flat(self, note):
+    def flat(self, note, **kwargs):
         return ""
 
     def lineend(self, *_args):
@@ -91,15 +91,19 @@ class MusicGenerator:
         return '%s\n' % result
 
     def __getattr__(self, name):
-        def method(*args, modifiers={}):
+        def method(*args, **modifiers):
             if name in self.simple_translation:
                 return self.simple_translation[name]
             elif name in self.func_translation:
                 if modifiers:
-                    return getattr(self, self.func_translation[name])(name, *args, modifiers=modifiers)
+                    return getattr(self, self.func_translation[name])(name, *args, **modifiers)
                 return getattr(self, self.func_translation[name])(name, *args)
             raise AttributeError("'%s' has no attribute '%s'" % (self.__class__.__name__, name))
         return method
+
+    def build_zipped_embellishment(self, notes):
+        self.prev_note = ""
+        return "%s\grace { %s }" % (self._get_indent(), ' '.join(map(lambda x : "%s%d" % x, notes)))
 
     def build_embellishment(self, notes):
         self.prev_note = ""
@@ -123,21 +127,24 @@ class MusicGenerator:
     def fermata(self, *_args):
         return "^\\fermata"
 
-    def footer(self, note):
-        if not self.prev_note:
-            return '^"%s"' % note
-        return '_"%s"' % note
+    def text(self, value):
+        return ('_"%s"' if self.prev_note else '^"%s"') % value
 
-    def title(self, note):
+    def footer(self, *args, **kwargs):
+        return self.text(args[0])
+
+    def title(self, *args, **kwargs):
         # TODO: Reformat for when we have multiple pieces in one file
-        return self.footer(note)
-    def tunetype(self, note):
-        return self.footer(note)
-    def composer(self, note):
-        return self.footer(note)
+        return self.text(args[0])
 
-    def tempo(self, note):
-        return self.footer("Tempo %s" % note)
+    def tunetype(self, *args, **kwargs):
+        return self.text(args[0])
+
+    def composer(self, *args, **kwargs):
+        return self.text(args[0])
+
+    def tempo(self, *args, **kwargs):
+        return self.text("Tempo %s" % args[0])
 
     def note_above(self, note, starting = "D"):
         note_index = self.sorted_notes.index(note)
@@ -153,7 +160,7 @@ class MusicGenerator:
             return "LG"
         return self.sorted_notes[note_index - 1 if note_index <= starting_index else starting_index]
 
-    def note(self, value, length, modifiers={}):
+    def note(self, value, length, **modifiers):
         result = "%s%d" % (self.notes[value], int(length))
         if modifiers and "dot" in modifiers:
             for x in range(0, modifiers["dot"]):
@@ -165,13 +172,13 @@ class MusicGenerator:
         self.prev_note = value
         return result 
 
-    def rest(self, length):
-        return '%sr%d' % (self._get_indent(), length)
+    def rest(self, length, **kwargs):
+        return '%sr%s' % (self._get_indent(), length)
 
-    def time_notation(self, upper, lower):
+    def time_notation(self, upper, lower, **kwargs):
         return '%s\\time %s/%s' % (self._get_indent(), upper, lower)
 
-    def endingstart(self, *num):
+    def endingstart(self, *num, **kwargs):
         result = []
         self._in_endings = True
         self._indent_level += 1
@@ -180,26 +187,27 @@ class MusicGenerator:
             return template % num[0]
         return template % ""
 
-    def endingend(self):
+    def endingend(self, **kwargs):
         self._in_endings = False
         self._indent_level -= 1
         return "%s\\set Score.repeatCommands = #'((volta #f))%s" % (self._get_indent(), self._get_indent())
 
-    def strike(self, *values, modifiers={}):
+    def strike(self, *values, **modifiers):
         # TODO: Fix the parser to not do weird shit
         i = 0
         while not values[i]:
             i += 1
+            print("i is now %d" % i)
         if not modifiers:
             return self.grace(values[i])
         result = []
         if "half" in modifiers:
             # half strike OFF OF value
-            result.append(values[1])
-        result.append("C" if "light" in modifiers else self.strike_notes[values[1]])
+            result.append(values[i])
+        result.append("C" if "light" in modifiers else self.strike_notes[values[i]])
         return self.build_embellishment(result)
 
-    def gracestrike(self, gracenote, from_note, modifiers={}):
+    def gracestrike(self, gracenote, from_note, **modifiers):
         gnote = gracenote
         strike_note = self.strike_notes[from_note]
         if gracenote == "LG":
@@ -209,7 +217,7 @@ class MusicGenerator:
             strike_note = "C"
         return self.build_embellishment([gnote, from_note, strike_note])
 
-    def doublestrike(self, from_note, modifiers={}):
+    def doublestrike(self, from_note, **modifiers):
         startnote = {"heavy": ["HG"],
             "thumb": ["HA"]}
         result = []
@@ -221,11 +229,13 @@ class MusicGenerator:
             drop_note = "C"
         return self.build_embellishment(result + [from_note, drop_note, from_note])
 
-    def triplestrike(self, from_note, modifiers={}):
+    def triplestrike(self, from_note, **modifiers):
         result = []
-        gracenote = self._(modifiers)
-        if gracenote:
-            result.append(gracenote)
+        startnote = {"heavy": ["HG"],
+            "thumb": ["HA"]}
+        for (k, v) in startnote.items():
+            if k in modifiers:
+                result = v
         drop_note = self.strike_notes[from_note]
         if "light" in modifiers:
             drop_note = "C"
@@ -233,13 +243,13 @@ class MusicGenerator:
             result.append(from_note)
         return self.build_embellishment(result + [drop_note, from_note, drop_note, from_note])
 
-    def grace(self, value):
+    def grace(self, value, **kwargs):
         return self.build_embellishment([value])
 
-    def doublegrace(self, *values):
+    def doublegrace(self, *values, **kwargs):
         return self.build_embellishment(values)
 
-    def double(self, note, modifiers = {}):
+    def double(self, note, **modifiers):
         doubling = []
         if not modifiers and note != "HA":
             doubling.append('HG')
@@ -251,7 +261,7 @@ class MusicGenerator:
             return self.build_embellishment(doubling + [self.note_below(note)])
         return self.build_embellishment(doubling + [note, self.note_above(note)])
 
-    def throw(self, modifiers={}):
+    def throw(self, **modifiers):
         if "half" in modifiers:
             result = ["D", "C"]
         else:
@@ -261,7 +271,7 @@ class MusicGenerator:
         return self.build_embellishment(result)
 
 
-    def pele(self, note, modifiers={}):
+    def pele(self, note, **modifiers):
         result = []
         if 'thumb' in modifiers:
             result.append('HA')
@@ -276,15 +286,14 @@ class MusicGenerator:
             result.append(self.strike_notes[note])
         return self.build_embellishment(result)
 
-    def tuplets(self, *args, **kwargs):
-        print(args)
+    def tuplet(self, *args, **kwargs):
         if "start" in kwargs:
             self._indent_level += 1
             return "\\tuplet %s/%s {" % args
         self._indent_level -= 1
         return "}"
 
-    def tie(self, *_args, modifiers={}):
+    def tie(self, *_args, **modifiers):
         # Drop args, in case the tie specifies a note
         if 'state' in modifiers:
             if modifiers['state'] == 'start':
@@ -301,7 +310,7 @@ class MusicGenerator:
         else:
             return '~'
 
-    def birl(self, modifiers={}):
+    def birl(self, **modifiers):
         result = []
         if "half" in modifiers:
             pass
@@ -324,7 +333,7 @@ class MusicGenerator:
         mid_note = ["B"] if prev_note == "D" else ["D"]
         return ["LG"] + mid_note + ["LG"]
 
-    def grip(self, *note, modifiers={}):
+    def grip(self, *note, **modifiers):
         if len(note) == 0 or not note[0]:
             return self.build_embellishment(self._grip_helper(self.prev_note))
         if not modifiers and note[0] == "B":
@@ -345,33 +354,34 @@ class MusicGenerator:
     def dtarluath(self):
         return self.build_embellishment(self._grip_helper("D") + ["E"])
 
-    def crunluath(self, modifiers={}):
+    def crunluath(self, **modifiers):
         return self.build_embellishment(["LG", "D", "LG", "E", "LA", "F", "LA"])
 
-    def hiharin(self, modifiers={}):
+    def hiharin(self, **modifiers):
         return self.build_embellishment(["D", "LA", "LG", "LA", "LG"])
 
     def rodin(self):
         return self.build_embellishment(["LG", "B", "LG"])
 
-    def cadence(self, *notes, modifiers={}):
+    def cadence(self, *notes, **modifiers):
         builder = []
         if "fermata" in modifiers:
             # TODO: Shove a fermata on the cadence
             pass
         # TODO: Make the behavior consistent with what's expected
         patterns = ["", [8], [32, 8], [32,8,32]]
-        patterned_notes = map("".join, zip(map(lambda x: self.notes[x], notes), pattern[len(notes)]))
-        return "\grace { %s }" % " ".join(patterned_notes)
+        patterned_notes = map("".join, zip(map(lambda x: self.notes[x], notes), patterns[len(notes)]))
+        patterned_notes = zip(notes, patterns[len(notes)])
+        return self.build_zipped_embellishment(patterned_notes)
 
-    def darado(self, modifiers={}):
+    def darado(self, *args, **modifiers):
         result = []
         if "half" not in modifiers:
             result.append("LG")
         result += ["D", "LG", "C", "LG"]
         return self.build_embellishment(result)
 
-    def edre(self, *values, modifiers={}):
+    def edre(self, *values, **modifiers):
         # TODO: Fix this whole thing
         # edres depend on the next note, maybe?
         # On B, with edre("LG"), we should return "HG", "B", "LG", "D", "LG" apparently
@@ -385,7 +395,7 @@ class MusicGenerator:
         result += ["E", low_note, "F", low_note]
         return self.build_embellishment(result)
 
-    def dare(self, *values, modifiers={}):
+    def dare(self, *values, **modifiers):
         result = ["F", "E", "HG", "E"]
         if "heavy" in modifiers:
             result.insert(0, "HG")
@@ -393,12 +403,16 @@ class MusicGenerator:
             result.insert(0, "HA")
         return self.build_embellishment(result)
 
-    def chedare(self, *values, modifiers={}):
+    def chedare(self, *values, **modifiers):
         result = ["F", "E", "HG", "E", "F", "E"]
         return self.build_embellishment(result)
 
-    def endari(self, *values, modifiers={}):
+    def endari(self, *values, **modifiers):
         result = ["E", "LA", "F", "LA"]
+        return self.build_embellishment(result)
+
+    def embari(self, *values, **modifiers):
+        result = ["E", "LG", "F", "LG"]
         return self.build_embellishment(result)
 
     def _decode(self, note):
@@ -406,20 +420,20 @@ class MusicGenerator:
         fname = ""
         fargs = []
         fkwargs = {}
-        if isinstance(note, str):
-            fname = self._normalize(note)
-        else:
-            fname = note[0]
-            fargs = note[1]
-            if len(note) >= 3:
-                fkwargs = note[2]
-            if isinstance(fargs, tuple):
-                fargs = [self._normalize(n) for n in fargs]
-        if not isinstance(fargs, list):
-            return getattr(self, fname)(fargs)
-        if fkwargs:
-            return getattr(self, fname)(*fargs, modifiers=fkwargs)
-        return getattr(self, fname)(*fargs)
+        try:
+            if isinstance(note, str):
+                fname = self._normalize(note)
+            else:
+                fname = note.note_type
+                fargs = note.ordered_arguments
+                fkwargs = note.modifiers
+            if not isinstance(fargs, list):
+                return getattr(self, fname)(fargs)
+            if fkwargs:
+                return getattr(self, fname)(*fargs, **fkwargs)
+            return getattr(self, fname)(*fargs)
+        except Exception as e:
+            raise Exception("%s in %s with *%s **%s" % (str(e), fname, fargs, fkwargs))
 
 
     def _find_offset(self, time, notes, note_offset=0):
@@ -468,14 +482,14 @@ class MusicGenerator:
             note = tune.notes[i]
             if not note or note == '' or note == "_ignore":
                 continue
-            if self._in_endings != None and not self._in_endings and note[0] != 'endingstart':
+            if self._in_endings != None and not self._in_endings and note.note_type != 'endingstart':
                 self._in_endings = None
             if response := self._decode(note):
                 result.append(response)
-                if note in ["repeatstart", "partstart"] or isinstance(note, list) and note[0] == "time_notation":
+                if note.note_type in ["repeatstart", "partstart", "time_notation"]:
                     time = self._curr_time
-                    if note[0] == "time_notation":
-                        self._curr_time = tuple([int(t) for t in note[1]])
+                    if note.note_type == "time_notation":
+                        self._curr_time = tuple([int(t) for t in note.ordered_arguments])
                     if new_offset := self._find_offset(time, islice(tune.notes, i + 1, None)):
                         self.offset = new_offset
         return "".join(result)
