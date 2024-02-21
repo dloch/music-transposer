@@ -5,7 +5,7 @@ class Tune:
     def set_values(self, argobj):
         for (k, v) in argobj.items():
             if k in self.get_value_names():
-                self.__setattr__(k, v)
+                self.__setattr__(k, v.ordered_arguments[0])
             else:
                 self.miscparseinfo[k] = v
 

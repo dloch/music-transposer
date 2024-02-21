@@ -31,6 +31,9 @@ class NoteToken:
     def add_modifiers(self, modifiers):
         self.modifiers.update(modifiers)
 
+    def set_args(self, values):
+        self.ordered_arguments = values
+
     def set_arg(self, key, value, force=False): 
         if force or key not in self.keyword_arguments:
             keyword_arguments[key] = value
@@ -49,11 +52,17 @@ class NoteToken:
     def __eq__(self, other):
         if not isinstance(other, NoteToken):
             return False
-        compare = ["note_type", "ordered_arguments", "keyword_arguments", "argument_indices", "is_apply_note", "modifiers"]
-        return reduce(lambda acc, x: acc and getattr(self, x) == getattr(other, x))
+        compare = ["note_type", "ordered_arguments", "argument_indices", "modifiers"]
+        result = True
+        for k in compare:
+            result = result and getattr(self, k) == getattr(other, k)
+        return result
 
     def __str__(self):
         return "%s(%s/%s, **%s)" % (self.note_type, self.ordered_arguments, self.keyword_arguments, self.modifiers)
+
+    def __repr__(self):
+        return self.__str__()
 
     def __init__(self, name=None):
         self.note_type = name

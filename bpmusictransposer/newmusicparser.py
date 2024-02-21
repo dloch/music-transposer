@@ -108,7 +108,8 @@ class MusicParser:
         for (i, note) in enumerate(tune.notes):
             if note.note_type in to_find:
                 to_find.remove(note.note_type)
-            result[note.note_type] = note
+                result[note.note_type] = note
+                remove.append(i)
         for i in reversed(remove):
             tune.notes.pop(i)
         return result
