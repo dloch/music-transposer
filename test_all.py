@@ -1,4 +1,5 @@
-import os, sys
+import os, sys, datetime, traceback
+from multiprocess import Pool
 from bpmusictransposer.musicgenerator import MusicGenerator
 from bpmusictransposer.musicparser import MusicParser
 
@@ -12,16 +13,13 @@ def write_tune(generator, tune, filename):
         with open(filename, 'x') as file:
             file.write(tunestring)
     except Exception as e:
-        print("%s Failed: %s" % (filename, e), file=sys.stderr)
+        print("%s Error in %s" % (e, filename), file=sys.stderr)
 
 def parse_tune(parser, filename):
     try:
-        tunestr = ""
-        with open(filename, 'r', encoding="cp1252") as file:
-            tunestr = file.read()
-        return parser.get_tune(tunestr)
-    except:
-        print("Parse %s failed" % filename)
+        return (parser.get_tune_from_file(filename), "%s.ly"  % filename)
+    except Exception as e:
+        print("Parse %s failed: %s" % (filename, e))
         return None
 
 def __main__():
@@ -32,7 +30,13 @@ def __main__():
 
     mp = MusicParser.parsers["BagpipeMusicWriter"]
     mg = MusicGenerator()
-    tunes = [[parse_tune(mp, f), "%s.ly" % f] for f in files]
+    start = datetime.datetime.now()
+    #with Pool(processes=8) as pool:
+        #tunes = [pool.apply_async(parse_tune, (mp, f)) for f in files]
+        #tunes = [x.get() for x in tunes]
+    tunes = [parse_tune(mp, f) for f in files]
+    time_elapsed = datetime.datetime.now() - start
+    print("Took %s to parse" % time_elapsed)
     [write_tune(mg, tune[0], tune[1]) for tune in tunes]
 
 if __name__ == '__main__':

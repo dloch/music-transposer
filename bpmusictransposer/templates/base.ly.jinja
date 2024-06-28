@@ -1,18 +1,17 @@
 \score {
     \header {
         {{ header }}
+        copyright = "Transposed using LilyPond 2.20.0 at dlochridge.com"
+        tagline = #f
     }
 
     \layout {
         indent = 0\cm
-        \context {
-            \Score
-            \autoBreaksOff
-        }
     }
+
     \absolute {
+        \autoBreaksOff
         \override Stem.neutral-direction = -1
-        \override Stem.direction = -1
         {{ music }}
     }
 }

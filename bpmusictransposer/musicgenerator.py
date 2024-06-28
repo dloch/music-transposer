@@ -1,5 +1,6 @@
 from functools import reduce
 from itertools import islice
+import sys
 from jinja2 import Template, Environment, PackageLoader
 
 class MusicGenerator:
@@ -45,6 +46,28 @@ class MusicGenerator:
     def _get_indent(self):
         return '\n' + ' ' * self._indent_level * self._indent_spaces
 
+    def _in_context(self, context):
+        for c in self._context:
+            if c[0] == context:
+                return True
+        return False
+
+    def _enter_context(self, context):
+        self._indent_level += 1
+        self._context.append(context)
+
+    def _leave_context(self, context):
+        result = None
+        if len(self._context) > 0:
+            if self._context[-1][0] != context:
+                return None
+            result = self._context.pop()
+            response = "%s%s" % (self._get_indent(), result[1])
+            self._indent_level -= 1
+            return response
+        return None
+            
+
     def clefc(self, *_args):
         return '%s\\clef treble' % self._get_indent()
 
@@ -62,15 +85,18 @@ class MusicGenerator:
 
     def repeatstart(self, *_args):
         response = '%s\\repeat volta 2 {' % self._get_indent()
-        self._indent_level += 1
+        self._enter_context(("repeat", "}"))
         if self.offset:
             response = '%s%s%s\n%s' % (response, self._get_indent(), self.offset, self._get_indent())
             self.offset = None
         return response
 
     def repeatend(self, *_args):
-        self._indent_level -= 1
-        return "%s}%s\\break\n" % (self._get_indent(), self._get_indent())
+        context_end = self._leave_context("repeat")
+        response = "%s\\break\n" % self._get_indent()
+        if context_end:
+            response = "%s%s" % (context_end, response)
+        return response
 
 
     def bar(self, bartype):
@@ -82,12 +108,11 @@ class MusicGenerator:
                 }
         nobreak = ["barstart", "barend"]
         result = barval % barvals[bartype]
-        if self.offset:
-            result = '%s\n%s' % (result, self.offset)
+        if bartype in nobreak:
+            result = '%s%s' % (result, self._get_indent())
+        else:
+            result = '%s%s\\break' % (result, self._get_indent())
             self.offset = None
-        elif bartype in nobreak:
-            result = "%s \\noBreak" % result
-
         return '%s\n' % result
 
     def __getattr__(self, name):
@@ -106,6 +131,8 @@ class MusicGenerator:
         return "%s\grace { %s }" % (self._get_indent(), ' '.join(map(lambda x : "%s%d" % x, notes)))
 
     def build_embellishment(self, notes):
+        if not self.prev_note:
+            self.embellishment_fix = True
         self.prev_note = ""
         if len(notes) == 1:
             return "%s\grace { %s16 } " % (self._get_indent(), self.notes[notes[0]])
@@ -162,9 +189,11 @@ class MusicGenerator:
 
     def note(self, value, length, **modifiers):
         result = "%s%d" % (self.notes[value], int(length))
-        if modifiers and "dot" in modifiers:
+        if "dot" in modifiers:
             for x in range(0, modifiers["dot"]):
                 result += '.'
+        if "tuplet" in modifiers and not self._in_context("tuplet"):
+            result = "%s%s" % (self.tuplet(3, int(length)/2), result)
         if self.is_tying != None:
             result = "%s%s" % (self.tie(modifiers={"state": "check"}), result)
         if self.prev_note:
@@ -180,7 +209,7 @@ class MusicGenerator:
 
     def endingstart(self, *num, **kwargs):
         result = []
-        self._in_endings = True
+        self._enter_context(("ending", "#f"))
         self._indent_level += 1
         template = "%s\set Score.repeatCommands = #'((volta \"%s\"))%s" % (self._get_indent(), "%s", self._get_indent())
         if len(num) > 0:
@@ -189,15 +218,15 @@ class MusicGenerator:
 
     def endingend(self, **kwargs):
         self._in_endings = False
-        self._indent_level -= 1
-        return "%s\\set Score.repeatCommands = #'((volta #f))%s" % (self._get_indent(), self._get_indent())
+        if self._leave_context("ending"):
+            return "%s\\set Score.repeatCommands = #'((volta #f))%s" % (self._get_indent(), self._get_indent())
+        return ""
 
     def strike(self, *values, **modifiers):
         # TODO: Fix the parser to not do weird shit
         i = 0
         while not values[i]:
             i += 1
-            print("i is now %d" % i)
         if not modifiers:
             return self.grace(values[i])
         result = []
@@ -288,10 +317,9 @@ class MusicGenerator:
 
     def tuplet(self, *args, **kwargs):
         if "start" in kwargs:
-            self._indent_level += 1
+            self._enter_context(("tuplet", "}"))
             return "\\tuplet %s/%s {" % args
-        self._indent_level -= 1
-        return "}"
+        return self._leave_context("tuplet")
 
     def tie(self, *_args, **modifiers):
         # Drop args, in case the tie specifies a note
@@ -443,19 +471,19 @@ class MusicGenerator:
         first_bar_index = 0
         prebar_notes = []
         for i, note in enumerate(notes):
-            if isinstance(note, list) and note[0] == 'note':
+            if note.get_type() == 'note':
                 prebar_notes.append(note)
-            elif isinstance(note, str) and note.endswith('end'):
+            elif note.get_type().endswith('end'):
                 first_bar_index = i
                 break
 
         def set_weight(note):
-            note_denom = int(note[1][1])
+            note_denom = int(note.get_args()[1])
             base_value = time_denom / note_denom
             addl_value = 0
-            if "dot" in note[2]:
+            if "dot" in note.modifiers:
                 temp_val = base_value
-                for x in range(note[2]["dot"]):
+                for x in range(note.modifiers["dot"]):
                     addl_value += 0.5 * temp_val
                     temp_val = temp_val / 2
             return base_value + addl_value
@@ -464,10 +492,13 @@ class MusicGenerator:
 
         offset = time_count - prebar_count
 
-        if not offset:
-            return ""
+        offset_time_denom = time_denom
+    
+        while offset > 1 and 1 / offset > 1 and not offset.is_integer():
+            offset *=2
+            offset_time_denom *= 2
 
-        return "\set Timing.measurePosition = #(ly:make-moment %d/%d)" % (offset, time_denom)
+        return "\set Timing.measurePosition = #(ly:make-moment %d/%d)" % (offset, offset_time_denom)
 
     def _generate_header(self, tune):
         return """
@@ -482,10 +513,14 @@ class MusicGenerator:
             note = tune.notes[i]
             if not note or note == '' or note == "_ignore":
                 continue
-            if self._in_endings != None and not self._in_endings and note.note_type != 'endingstart':
-                self._in_endings = None
             if response := self._decode(note):
                 result.append(response)
+                if self.embellishment_fix:
+                    result.append("%s\override Stem.direction = -1%s" % (self._get_indent(), self._get_indent()))
+                    self.embellishment_fix = False
+                    self.stem_reversed = True
+                if not self.stem_reversed and self.prev_note:
+                    result.insert(-1, "%s\override Stem.direction = -1%s" % (self._get_indent(), self._get_indent()))
                 if note.note_type in ["repeatstart", "partstart", "time_notation"]:
                     time = self._curr_time
                     if note.note_type == "time_notation":
@@ -506,7 +541,10 @@ class MusicGenerator:
 
     def __reset__(self):
         self.prev_note = ""
+        self.embellishment_fix = False
+        self.stem_reversed = False
         self.offset = ""
+        self._context = []
         self.is_tying = None
         self._in_endings = None
         self._indent_level = 2

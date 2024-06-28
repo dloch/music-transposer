@@ -34,6 +34,10 @@ class MusicParser:
         result.notes = self.parse(musicstr)
         header = self._process_first_and_remove(["title", "tunetype", "composer"], result)
         result.set_values(header)
+        time = self._find_first("time_notation", result)
+        if time:
+            time_parts = time.get_args()
+            result.time = (int(time_parts[0]), int(time_parts[1]))
         return result
 
     def parse(self, musicstr):
@@ -113,6 +117,11 @@ class MusicParser:
         for i in reversed(remove):
             tune.notes.pop(i)
         return result
+    def _find_first(self, key, tune):
+        for (i, note) in enumerate(tune.notes):
+            if key == note.get_type():
+                return note
+        return None
 
     # Parser builders
     def _replace_arguments(self, value):
@@ -182,6 +191,12 @@ class MusicParser:
                 note.add_modifiers(result)
                 return note
         return omnihandle
+
+    def _build_type_handler(self, mutate):
+        def typehandle(note):
+            note.set_note_type(mutate)
+            return note
+        return typehandle
 
     def _build_mutate_handler(self, mutate):
         def default(token):
@@ -286,6 +301,7 @@ class MusicParser:
     def _add_parser_handler(self, target, definition):
         handled = ["Ingest"]
         handlers = [
+            ("type", self._build_type_handler),
             ("mutate", self._build_mutate_handler),
             ("args", self._build_args_handler),
             ("modifiers", self._build_modifier_handler),
@@ -367,7 +383,7 @@ def load_parsers():
     if not MusicParser.parsers:
         parsers = impresources.files(parserdefs)
         for parserfile in parsers.iterdir():
-            if parserfile.suffix == '.new':
+            if parserfile.suffix == '.json':
                 parserjson = json.loads(parserfile.read_text())
                 MusicParser(parserjson, register=True)
                 try:
