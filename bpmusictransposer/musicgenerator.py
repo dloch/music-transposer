@@ -2,8 +2,10 @@ from functools import reduce
 from itertools import islice
 import sys
 from jinja2 import Template, Environment, PackageLoader
+from bpmusictransposer.logger import Logger
 
 class MusicGenerator:
+    logger = Logger()
     notes = {
                 "LG": "g'",
                 "LA": "a'",
@@ -53,10 +55,13 @@ class MusicGenerator:
         return False
 
     def _enter_context(self, context):
+        self.logger.log("Enter context {%s}" % (context[0]), 2)
         self._indent_level += 1
+        self.logger.log("  New indent {%d}" % self._indent_level, 3)
         self._context.append(context)
 
     def _leave_context(self, context):
+        self.logger.log("Leave context {%s}" % context, 2)
         result = None
         if len(self._context) > 0:
             if self._context[-1][0] != context:
@@ -64,6 +69,7 @@ class MusicGenerator:
             result = self._context.pop()
             response = "%s%s" % (self._get_indent(), result[1])
             self._indent_level -= 1
+            self.logger.log("  New indent {%d}" % self._indent_level, 3)
             return response
         return None
             
@@ -117,6 +123,7 @@ class MusicGenerator:
 
     def __getattr__(self, name):
         def method(*args, **modifiers):
+            self.logger.log("Call func {%s(%s, %s)}" % (name, args, modifiers), 5)
             if name in self.simple_translation:
                 return self.simple_translation[name]
             elif name in self.func_translation:
@@ -497,6 +504,8 @@ class MusicGenerator:
         while offset > 1 and 1 / offset > 1 and not offset.is_integer():
             offset *=2
             offset_time_denom *= 2
+        
+        self.logger.log("New offset {%f/%f}" % (offset, offset_time_denom), 3)
 
         return "\set Timing.measurePosition = #(ly:make-moment %d/%d)" % (offset, offset_time_denom)
 

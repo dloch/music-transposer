@@ -1,28 +1,20 @@
 import re, json, os
-import sys
 from bpmusictransposer.tune import Tune
 from bpmusictransposer.notetoken import NoteToken
+from bpmusictransposer.logger import Logger
 from itertools import takewhile, islice
 from importlib import resources as impresources
 from . import parserdefs
 from functools import partial
 
-from pprint import pprint
-
 class MusicParser:
     argument_re = re.compile('{{([^}]*)}}')
+    logger = Logger()
 
-    loglevel = 0
-    logger = sys.stdout
     parsers = {}
     
-    def _log(self, level, msg):
-        if level <= self.loglevel and self.logger:
-            print(msg, file=self.logger)
-
     def set_loglevel(self, level):
-        self.loglevel = level
-        self.logger = None if level == 0 else sys.stdout
+        logger.set_loglevel(level)
 
     def get_tune_from_file(self, filename):
         with open(filename, encoding=self.encoding) as file:
@@ -149,9 +141,9 @@ class MusicParser:
         if defkey not in defs:
             return
         for (k, v) in defs[defkey].items():
-            self._log(3, "Add Internal definition: %s" % k)
-            self._log(4, v)
-            self._log(4, "====================================")
+            self.logger.log("Add Internal definition: %s" % k, 3)
+            self.logger.log(v, 4)
+            self.logger.log("====================================", 4)
             if isinstance(v, str):
                 self.internal_defs[k] = "(?P<%s>%s)" % ("%s", v)
             elif isinstance(v, dict):
@@ -160,8 +152,8 @@ class MusicParser:
                 for (subkey, values) in v.items():
                     redata += self._add_all(self.internal_defs, subkey, values)
                 self.internal_defs[k] = repattern % ("%s", "|".join(redata))
-        self._log(1, "Build internal definitions")
-        self._log(2, self.internal_defs)
+        self.logger.log("Build internal definitions", 1)
+        self.logger.log(self.internal_defs, 2)
 
     def _build_ingest_handler(self, name):
         def handle(match):
@@ -286,9 +278,9 @@ class MusicParser:
         if defkey not in defs:
             return
         for definition in defs[defkey]:
-            self._log(3, "Add Preprocess definition: %s" % definition["target"])
-            self._log(4, definition["pattern"])
-            self._log(4, "====================================")
+            self.logger.log("Add Preprocess definition: %s" % definition["target"], 3)
+            self.logger.log(definition["pattern"], 4)
+            self.logger.log("====================================", 4)
             if isinstance(definition["pattern"], str):
                 self._add_preprocess_data(definition["target"], definition["pattern"])
             else:
@@ -318,9 +310,9 @@ class MusicParser:
         if defkey not in defs:
             return
         for definition in defs[defkey]:
-            self._log(3, "Add Parse definition: %s" % definition["target"])
-            self._log(4, definition["pattern"])
-            self._log(4, "====================================")
+            self.logger.log("Add Parse definition: %s" % definition["target"], 3)
+            self.logger.log(definition["pattern"], 4)
+            self.logger.log("====================================", 4)
             if isinstance(definition["pattern"], str):
                 self._add_parser_matchers(definition["target"], definition["pattern"])
             else:
@@ -345,13 +337,13 @@ class MusicParser:
             return
         for definition in defs[defkey]:
             for target in definition["applies"]:
-                self._log(3, "Add Modified definition: %s" % definition["name"])
-                self._log(3, "Against: %s" % target)
-                self._log(4, definition)
+                self.logger.log("Add Modified definition: %s" % definition["name"], 3)
+                self.logger.log("Against: %s" % target, 4)
+                self.logger.log(definition, 4)
                 target_name = self._add_modifier_matcher(target, definition["name"], definition)
-                self._log(3, "As: %s" % target_name)
+                self.logger.log("As: %s" % target_name, 3)
                 self._add_modifier_handler(target, target_name, definition)
-                self._log(3, "====================================")
+                self.logger.log("====================================", 3)
 
     def _load_parser(self, jsondef, register=False):
         defs = jsondef
