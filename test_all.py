@@ -37,7 +37,10 @@ def __main__():
     tunes = [parse_tune(mp, f) for f in files]
     time_elapsed = datetime.datetime.now() - start
     print("Took %s to parse" % time_elapsed)
+    start = datetime.datetime.now()
     [write_tune(mg, tune[0], tune[1]) for tune in tunes]
+    time_elapsed = datetime.datetime.now() - start
+    print("Took %s to generate" % time_elapsed)
 
 if __name__ == '__main__':
     __main__()

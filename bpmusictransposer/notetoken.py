@@ -35,8 +35,8 @@ class NoteToken:
         self.ordered_arguments = values
 
     def set_arg(self, key, value, force=False): 
-        if force or key not in self.keyword_arguments:
-            keyword_arguments[key] = value
+        if force or key not in self.keyword_arguments or self.keyword_arguments[key] == None:
+            self.keyword_arguments[key] = value
             if key in self.argument_indices:
                 self.ordered_arguments[self.argument_indices[key]] = value
             else:

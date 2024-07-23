@@ -165,8 +165,8 @@ class MusicParser:
 
     def _build_modifier_handler(self, modifiers):
         def omnihandle(note):
+            result = {}
             for (k,v) in modifiers.items():
-                result = {}
                 if isinstance(v, list):
                     if v[0] == "_!f":
                         result[k] = globals()[v[1]][v[2]](note.keyword_arguments[v[3]])
@@ -180,8 +180,8 @@ class MusicParser:
                         result[k] = arg
                 else:
                     result[k] = v
-                note.add_modifiers(result)
-                return note
+            note.add_modifiers(result)
+            return note
         return omnihandle
 
     def _build_type_handler(self, mutate):
@@ -211,15 +211,22 @@ class MusicParser:
             return note
         return set_args
 
+    def _is_when(self, target, when):
+        result = True
+        for (k, v) in when.items():
+            result = result and target.modifiers[k] == v
+        return result
+
     def _build_apply_handler(self, apply):
         def prevn(count, apply_token, notes):
-            applied = 0
-            for i in range(-1, -len(notes), -1):
-                if isinstance(notes[i], NoteToken) and notes[i].note_type == apply["target"]:
-                    notes[i].add_modifiers(apply_token.modifiers)
-                    applied += 1
-                if applied >= count:
-                    break
+            if "when" not in apply or self._is_when(apply_token, apply["when"]):
+                applied = 0
+                for i in range(-1, -len(notes), -1):
+                    if isinstance(notes[i], NoteToken) and notes[i].note_type == apply["target"]:
+                        notes[i].add_modifiers(apply_token.modifiers)
+                        applied += 1
+                    if applied >= count:
+                        break
             return apply_token if "return" in apply and apply["return"] else None
 
         def apply_handler(token):

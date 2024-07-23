@@ -37,7 +37,6 @@ def parseargs():
 def main():
     arguments = parseargs()
     logger = Logger()
-    print(arguments.verbose)
-    logger.set_loglevel(int(arguments.verbose))
+    logger.set_loglevel(int(arguments.verbose or 1))
     [generate(parse(filename, logger), "%s.ly" % filename, logger) for filename in arguments.filenames]
     return 0

@@ -212,6 +212,8 @@ class MusicGenerator:
         return '%sr%s' % (self._get_indent(), length)
 
     def time_notation(self, upper, lower, **kwargs):
+        if (upper, lower) == self._curr_time:
+            return ''
         return '%s\\time %s/%s' % (self._get_indent(), upper, lower)
 
     def endingstart(self, *num, **kwargs):
@@ -323,10 +325,12 @@ class MusicGenerator:
         return self.build_embellishment(result)
 
     def tuplet(self, *args, **kwargs):
-        if "start" in kwargs:
+        if kwargs['state'] == 'start':
             self._enter_context(("tuplet", "}"))
-            return "\\tuplet %s/%s {" % args
-        return self._leave_context("tuplet")
+            return "\\tuplet %s/%s {" % kwargs['tuplet']
+        elif "end" in kwargs or 'e' in args or 'E' in args:
+            return self._leave_context("tuplet")
+        return ''
 
     def tie(self, *_args, **modifiers):
         # Drop args, in case the tie specifies a note
@@ -471,7 +475,7 @@ class MusicGenerator:
             raise Exception("%s in %s with *%s **%s" % (str(e), fname, fargs, fkwargs))
 
 
-    def _find_offset(self, time, notes, note_offset=0):
+    def _find_offset(self, time, notes, note_offset=0, simple_opt="partial"):
         time_count = time[0]
         time_denom = time[1]
         
@@ -500,8 +504,11 @@ class MusicGenerator:
         offset = time_count - prebar_count
 
         offset_time_denom = time_denom
-    
-        while offset > 1 and 1 / offset > 1 and not offset.is_integer():
+
+        if prebar_count != 0 and (time_denom / prebar_count).is_integer():
+            return "\%s %d" % (simple_opt, (time_denom / prebar_count))
+
+        while offset > 1 and not float(offset).is_integer():
             offset *=2
             offset_time_denom *= 2
         
@@ -530,6 +537,7 @@ class MusicGenerator:
                     self.stem_reversed = True
                 if not self.stem_reversed and self.prev_note:
                     result.insert(-1, "%s\override Stem.direction = -1%s" % (self._get_indent(), self._get_indent()))
+                    self.stem_reversed = True
                 if note.note_type in ["repeatstart", "partstart", "time_notation"]:
                     time = self._curr_time
                     if note.note_type == "time_notation":
